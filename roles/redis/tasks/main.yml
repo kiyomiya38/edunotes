@@ -1,0 +1,30 @@
+- name: Install Redis
+  ansible.builtin.dnf: { name: redis, state: present }
+
+- name: Fetch Redis password from SSM
+  set_fact:
+    redis_password: "{{ lookup('amazon.aws.aws_ssm', ssm_redis_password, decrypt=true, region=lookup('env','AWS_REGION')|default('ap-northeast-3', true)) }}"
+
+- name: Configure redis.conf - bind
+  ansible.builtin.lineinfile:
+    path: /etc/redis/redis.conf
+    regexp: '^#?bind '
+    line: "bind 0.0.0.0"
+
+- name: Configure redis.conf - requirepass
+  ansible.builtin.lineinfile:
+    path: /etc/redis/redis.conf
+    regexp: '^#?requirepass '
+    line: "requirepass {{ redis_password }}"
+
+- name: Configure redis.conf - supervised
+  ansible.builtin.lineinfile:
+    path: /etc/redis/redis.conf
+    regexp: '^#?supervised '
+    line: "supervised systemd"
+
+- name: Start Redis
+  ansible.builtin.systemd:
+    name: redis
+    enabled: true
+    state: started

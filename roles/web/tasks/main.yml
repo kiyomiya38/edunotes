@@ -1,0 +1,64 @@
+- name: Install Node.js
+  ansible.builtin.dnf:
+    name: nodejs
+    state: present
+
+- name: Configure Nginx vhost
+  ansible.builtin.template:
+    src: nginx.conf.j2
+    dest: /etc/nginx/conf.d/edunotes.conf
+- name: Restart Nginx
+  ansible.builtin.systemd:
+    name: nginx
+    state: restarted
+    enabled: true
+
+- name: Create edunotes directory
+  ansible.builtin.file:
+    path: /opt/edunotes
+    state: directory
+    mode: '0755'
+
+- name: Deploy app from git
+  ansible.builtin.git:
+    repo: "{{ app_repo }}"
+    dest: /opt/edunotes
+    version: "{{ app_branch }}"
+    force: yes
+
+- name: Install dependencies
+  ansible.builtin.command: npm ci
+  args: { chdir: /opt/edunotes }
+
+# Look up secrets & hosts
+- name: Lookup secrets from SSM
+  set_fact:
+    db_password: "{{ lookup('amazon.aws.aws_ssm', ssm_db_password, decrypt=true, region=lookup('env','AWS_REGION')|default('ap-northeast-3', true)) }}"
+    redis_password: "{{ lookup('amazon.aws.aws_ssm', ssm_redis_password, decrypt=true, region=lookup('env','AWS_REGION')|default('ap-northeast-3', true)) }}"
+    minio_access_key: "{{ lookup('amazon.aws.aws_ssm', ssm_minio_access_key, decrypt=true, region=lookup('env','AWS_REGION')|default('ap-northeast-3', true)) }}"
+    minio_secret_key: "{{ lookup('amazon.aws.aws_ssm', ssm_minio_secret_key, decrypt=true, region=lookup('env','AWS_REGION')|default('ap-northeast-3', true)) }}"
+
+- name: Set infra hosts from inventory
+  set_fact:
+    redis_host: "{{ hostvars[groups['redis'][0]].inventory_hostname }}"
+    minio_host: "{{ hostvars[groups['minio'][0]].inventory_hostname }}"
+
+- name: Ensure env dir
+  ansible.builtin.file: { path: /etc/edunotes, state: directory, mode: '0755' }
+
+- name: Put env
+  ansible.builtin.template:
+    src: envfile.j2
+    dest: /etc/edunotes/env
+    mode: '0640'
+
+- name: Create systemd service
+  ansible.builtin.template:
+    src: edunotes.service.j2
+    dest: /etc/systemd/system/edunotes.service
+
+- name: Enable & start app
+  ansible.builtin.systemd:
+    name: edunotes
+    enabled: true
+    state: started

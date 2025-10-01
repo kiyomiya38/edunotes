@@ -1,0 +1,5 @@
+#!/bin/bash
+set -euo pipefail
+/usr/local/bin/mc alias set local http://127.0.0.1:9000 {{ minio_access_key }} {{ minio_secret_key }}
+/usr/local/bin/mc mb -p local/{{ minio_bucket }} || true
+/usr/local/bin/mc policy set none local/{{ minio_bucket }}

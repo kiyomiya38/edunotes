@@ -1,0 +1,16 @@
+project: "edunotes"
+domain_name: "notes.infra-skills.com"
+app_repo: "https://github.com/example/edunotes.git"  # replace with your repo
+app_branch: "main"
+
+db_endpoint: "REPLACE_WITH_RDS_ENDPOINT"
+db_username: "edunotes"
+
+# SSM parameter paths
+ssm_db_password: "/{{ project }}/db/password"
+ssm_redis_password: "/{{ project }}/redis/password"
+ssm_minio_access_key: "/{{ project }}/minio/access_key"
+ssm_minio_secret_key: "/{{ project }}/minio/secret_key"
+minio_bucket: "edunotes"
+
+session_secret: "change_me_session"

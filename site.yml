@@ -1,0 +1,19 @@
+- hosts: all
+  become: yes
+  roles: [common]
+
+- hosts: redis
+  become: yes
+  roles: [redis]
+
+- hosts: minio
+  become: yes
+  roles: [minio]
+
+- hosts: web
+  become: yes
+  roles: [web]
+
+- hosts: monitor
+  become: yes
+  roles: [monitor]

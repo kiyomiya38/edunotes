@@ -1,0 +1,60 @@
+- name: Create user
+  ansible.builtin.user: { name: prometheus, system: yes }
+
+- name: Download Prometheus
+  ansible.builtin.get_url:
+    url: https://github.com/prometheus/prometheus/releases/download/v2.54.1/prometheus-2.54.1.linux-amd64.tar.gz
+    dest: /tmp/prometheus.tar.gz
+
+- name: Extract Prometheus
+  ansible.builtin.unarchive:
+    src: /tmp/prometheus.tar.gz
+    dest: /opt/
+    remote_src: yes
+
+- name: Symlink binaries
+  ansible.builtin.file:
+    src: /opt/prometheus-2.54.1.linux-amd64/prometheus
+    dest: /usr/local/bin/prometheus
+    state: link
+
+- name: Create dirs
+  ansible.builtin.file:
+    path: /etc/prometheus
+    state: directory
+    owner: prometheus
+    group: prometheus
+
+- name: Put config
+  ansible.builtin.template:
+    src: prometheus.yml.j2
+    dest: /etc/prometheus/prometheus.yml
+    owner: prometheus
+    group: prometheus
+
+- name: Service unit
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/prometheus.service
+    content: |
+      [Unit]
+      Description=Prometheus
+      After=network.target
+      [Service]
+      User=prometheus
+      ExecStart=/usr/local/bin/prometheus --config.file=/etc/prometheus/prometheus.yml --storage.tsdb.path=/var/lib/prometheus
+      Restart=always
+      [Install]
+      WantedBy=multi-user.target
+
+- name: Create data dir
+  ansible.builtin.file:
+    path: /var/lib/prometheus
+    state: directory
+    owner: prometheus
+    group: prometheus
+
+- name: Start Prometheus
+  ansible.builtin.systemd:
+    name: prometheus
+    enabled: true
+    state: started

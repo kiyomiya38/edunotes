@@ -1,0 +1,9 @@
+NODE_ENV=production
+PORT=3000
+DATABASE_URL=postgres://{{ db_username }}:{{ db_password }}@{{ db_endpoint }}:5432/edunotes
+SESSION_SECRET={{ session_secret }}
+REDIS_URL=redis://:{{ redis_password }}@{{ redis_host }}:6379
+MINIO_ENDPOINT=http://{{ minio_host }}:9000
+MINIO_ACCESS_KEY={{ minio_access_key }}
+MINIO_SECRET_KEY={{ minio_secret_key }}
+MINIO_BUCKET={{ minio_bucket }}

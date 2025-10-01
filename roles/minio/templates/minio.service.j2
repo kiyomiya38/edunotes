@@ -1,0 +1,12 @@
+[Unit]
+Description=MinIO
+After=network.target
+[Service]
+User=root
+Group=root
+Environment="MINIO_ROOT_USER={{ minio_access_key }}"
+Environment="MINIO_ROOT_PASSWORD={{ minio_secret_key }}"
+ExecStart=/usr/local/bin/minio server /var/minio --address ":9000" --console-address "127.0.0.1:9001"
+Restart=always
+[Install]
+WantedBy=multi-user.target
