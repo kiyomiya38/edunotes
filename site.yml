@@ -1,19 +1,21 @@
+---
 - hosts: all
-  become: yes
-  roles: [common]
+  gather_facts: true
+  roles:
+    - common
 
 - hosts: redis
-  become: yes
-  roles: [redis]
+  roles:
+    - redis_vm
 
 - hosts: minio
-  become: yes
-  roles: [minio]
+  roles:
+    - minio_vm
 
 - hosts: web
-  become: yes
-  roles: [web]
+  roles:
+    - edunotes_web_vm
 
 - hosts: monitor
-  become: yes
-  roles: [monitor]
+  roles:
+    - prometheus_vm

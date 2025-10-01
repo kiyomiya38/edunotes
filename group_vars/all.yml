@@ -1,16 +1,24 @@
 project: "edunotes"
 domain_name: "notes.infra-skills.com"
-app_repo: "https://github.com/example/edunotes.git"  # replace with your repo
+
+app_repo: "https://github.com/example/edunotes.git"
 app_branch: "main"
 
-db_endpoint: "REPLACE_WITH_RDS_ENDPOINT"
+db_endpoint: "CHANGE_ME_RDS_ENDPOINT"
 db_username: "edunotes"
+db_name: "edunotes"
 
-# SSM parameter paths
-ssm_db_password: "/{{ project }}/db/password"
-ssm_redis_password: "/{{ project }}/redis/password"
-ssm_minio_access_key: "/{{ project }}/minio/access_key"
-ssm_minio_secret_key: "/{{ project }}/minio/secret_key"
+ssm_db_password: "/edunotes/db/password"
+ssm_redis_password: "/edunotes/redis/password"
+ssm_minio_access_key: "/edunotes/minio/access_key"
+ssm_minio_secret_key: "/edunotes/minio/secret_key"
+
+redis_host: "{{ hostvars[groups['redis'][0]]['inventory_hostname'] | default('10.81.32.20') }}"
+redis_port: 6379
+
+minio_host: "{{ hostvars[groups['minio'][0]]['inventory_hostname'] | default('10.81.48.30') }}"
+minio_port: 9000
 minio_bucket: "edunotes"
 
-session_secret: "change_me_session"
+session_secret: "please_change_session_secret"
+node_exporter_port: 9100
