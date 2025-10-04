@@ -1,16 +1,32 @@
+# ansible/roles/web/templates/nginx.conf.j2（全置換）
 server {
-  listen 80 default_server;
+  listen 80;
+  listen [::]:80;
   server_name _;
-  # static
+
   root /opt/edunotes/public;
   location /assets/ { try_files $uri =404; access_log off; expires 7d; }
-  # app
+
   location / {
     proxy_pass http://127.0.0.1:3000;
     proxy_set_header Host $host;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
     proxy_read_timeout 60s;
   }
-  # health
-  location = /healthz { return 200 'ok'; add_header Content-Type text/plain; }
+
+  location = /healthz {
+    proxy_pass http://127.0.0.1:3000/healthz;
+    proxy_set_header Host $host;
+    proxy_http_version 1.1;
+    proxy_set_header Connection "";
+  }
+
+  client_max_body_size 50m;
+  sendfile on;
+  keepalive_timeout 65;
+  access_log /var/log/nginx/edunotes_access.log;
+  error_log  /var/log/nginx/edunotes_error.log;
 }

@@ -1,5 +1,2 @@
 collections:
-  - name: amazon.aws
-  - name: community.aws
-  - name: community.general   # ← これを追加（npm モジュール等）
-
+  - name: community.general   # npm モジュールなどで使用

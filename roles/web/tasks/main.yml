@@ -1,7 +1,8 @@
+# ansible/roles/web/tasks/main.yml（全置換）
 ---
-# 0) 必要パッケージ（Ubuntu/Debian想定）
+# 1) パッケージ
 - name: Install base packages
-  ansible.builtin.apt:
+  apt:
     name:
       - curl
       - gnupg
@@ -11,28 +12,28 @@
     state: present
     update_cache: yes
 
-# 1) Node.js 20 (Nodesource)
+# 2) Node.js 20 (NodeSource)
 - name: Setup NodeSource repo
-  ansible.builtin.shell: |
+  shell: |
     set -e
     curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
   args:
     executable: /bin/bash
 
 - name: Install Node.js
-  ansible.builtin.apt:
+  apt:
     name: nodejs
     state: present
     update_cache: yes
 
-# 2) アプリ用ユーザー/ディレクトリ
+# 3) アプリ用ユーザー/ディレクトリ
 - name: Ensure app group
-  ansible.builtin.group:
+  group:
     name: edunotes
     system: yes
 
 - name: Ensure app user
-  ansible.builtin.user:
+  user:
     name: edunotes
     group: edunotes
     system: yes
@@ -40,7 +41,7 @@
     create_home: no
 
 - name: Create directories
-  ansible.builtin.file:
+  file:
     path: "{{ item }}"
     state: directory
     owner: edunotes
@@ -51,14 +52,14 @@
     - /etc/edunotes
     - /var/edunotes/uploads
 
-# 3) アプリ配布（環境変数で指定できるように。無ければスキップ）
+# 4) アプリ取得（環境変数 APP_REPO_URL / APP_REPO_BRANCH を想定）
 - name: Set default app repo vars
-  ansible.builtin.set_fact:
+  set_fact:
     app_repo: "{{ lookup('env','APP_REPO_URL') | default('', true) }}"
     app_branch: "{{ lookup('env','APP_REPO_BRANCH') | default('main', true) }}"
 
 - name: Clone app repository (optional)
-  ansible.builtin.git:
+  git:
     repo: "{{ app_repo }}"
     version: "{{ app_branch }}"
     dest: /opt/edunotes
@@ -66,8 +67,7 @@
   when: app_repo | length > 0
   become_user: edunotes
 
-# 4) 依存インストール
-- name: Install dependencies
+- name: Install dependencies (npm ci)
   community.general.npm:
     path: /opt/edunotes
     production: true
@@ -75,69 +75,70 @@
   when: app_repo | length > 0
   become_user: edunotes
 
-# 5) 机上のDB/REDIS/MINIO変数は SSMやUserDataから環境変数で渡す想定
-#    envfile.j2 側で「フェーズ1はローカル添付/非Redis」に寄せます
+# 5) .env（フェーズ1：ローカル添付・非Redis）
 - name: Render env file
-  ansible.builtin.template:
+  template:
     src: envfile.j2
     dest: /etc/edunotes/env
     owner: edunotes
     group: edunotes
     mode: "0640"
 
-# 6) Nginx vhost（Ubuntu流儀: sites-available → sites-enabled）
+# 6) Nginx vhost（Ubuntu流儀）
 - name: Render nginx vhost
-  ansible.builtin.template:
+  template:
     src: nginx.conf.j2
     dest: /etc/nginx/sites-available/edunotes.conf
     mode: "0644"
 
 - name: Enable nginx vhost
-  ansible.builtin.file:
+  file:
     src: /etc/nginx/sites-available/edunotes.conf
     dest: /etc/nginx/sites-enabled/edunotes.conf
     state: link
     force: yes
 
 - name: Remove default nginx site
-  ansible.builtin.file:
+  file:
     path: /etc/nginx/sites-enabled/default
     state: absent
 
-- name: Test nginx config
-  ansible.builtin.command: nginx -t
+- name: Test and restart nginx
+  command: nginx -t
   register: nginx_test
   changed_when: false
-
-- name: Restart nginx
-  ansible.builtin.systemd:
-    name: nginx
-    state: restarted
-    enabled: true
+  notify: Restart nginx
 
 # 7) systemd unit（非root）
 - name: Render systemd service
-  ansible.builtin.template:
+  template:
     src: edunotes.service.j2
     dest: /etc/systemd/system/edunotes.service
     mode: "0644"
 
 - name: daemon-reload
-  ansible.builtin.systemd:
+  systemd:
     daemon_reload: true
 
 - name: Start & enable app
-  ansible.builtin.systemd:
+  systemd:
     name: edunotes
     enabled: true
     state: started
 
-# 8) ヘルスチェック（/healthz が 200 を返す前提。DB疎通を実装推奨）
+# 8) ヘルスチェック (/healthz が 200 を返すこと)
 - name: Wait for healthz
-  ansible.builtin.uri:
+  uri:
     url: http://127.0.0.1:3000/healthz
     status_code: 200
   register: health
   retries: 30
   delay: 3
   until: health.status == 200
+
+# Handlers
+- name: Restart nginx
+  listen: Restart nginx
+  service:
+    name: nginx
+    state: restarted

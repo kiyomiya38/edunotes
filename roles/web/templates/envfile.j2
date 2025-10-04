@@ -1,13 +1,12 @@
-# ===== Base =====
+# ansible/roles/web/templates/envfile.j2（全置換）
 NODE_ENV=production
 PORT=3000
 
-# ===== App =====
-# ローカル保存（フェーズ1の「痛み」体験用）
+# App
 UPLOADS_DIR=/var/edunotes/uploads
 SESSION_SECRET={{ lookup('env','SESSION_SECRET') | default('change-me-please', true) }}
 
-# ===== DB (PostgreSQL) =====
+# DB (PostgreSQL)
 DB_CLIENT=pg
 DB_HOST={{ lookup('env','DB_HOST') | default('REPLACE_DB_HOST', true) }}
 DB_PORT={{ lookup('env','DB_PORT') | default('5432', true) }}
@@ -16,11 +15,11 @@ DB_USER={{ lookup('env','DB_USER') | default('edunotes_app', true) }}
 DB_PASSWORD={{ lookup('env','DB_PASSWORD') | default('REPLACE_DB_PASSWORD', true) }}
 DATABASE_URL=postgres://{{ lookup('env','DB_USER') | default('edunotes_app', true) }}:{{ lookup('env','DB_PASSWORD') | default('REPLACE_DB_PASSWORD', true) }}@{{ lookup('env','DB_HOST') | default('REPLACE_DB_HOST', true) }}:{{ lookup('env','DB_PORT') | default('5432', true) }}/{{ lookup('env','DB_NAME') | default('edunotes', true) }}
 
-# ===== Redis (Phase2で使用) =====
+# Redis (Phase2で使用)
 # USE_REDIS={{ lookup('env','USE_REDIS') | default('false', true) }}
 # REDIS_URL={{ lookup('env','REDIS_URL') | default('', true) }}
 
-# ===== S3/MinIO (Phase2で使用) =====
+# S3/MinIO (Phase2で使用)
 # STORAGE_BACKEND=s3
 # S3_ENDPOINT={{ lookup('env','S3_ENDPOINT') | default('', true) }}
 # S3_BUCKET={{ lookup('env','S3_BUCKET') | default('', true) }}

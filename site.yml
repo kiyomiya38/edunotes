@@ -1,24 +1,10 @@
-+++  # AFTER
+# ansible/site.yml（全置換）
 ---
-- name: Configure this node via ansible-pull
+- name: Configure this node via ansible-pull (Web only)
   hosts: localhost
   connection: local
   gather_facts: true
 
-  vars:
-    node_role: "{{ lookup('env','NODE_ROLE') | default('web') }}"
-
   roles:
     - role: common
-
-    # Web（ASG のアプリサーバ）
     - role: web
-      when: node_role == 'web'
-
-    # 以降は必要に応じて徐々に実装（今はダミーのままでもOK）
-    - role: redis
-      when: node_role == 'redis'
-    - role: minio
-      when: node_role == 'minio'
-    - role: monitor
-      when: node_role == 'monitor'
