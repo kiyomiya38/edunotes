@@ -1,19 +1,24 @@
-# ansible/roles/web/templates/edunotes.service.j2（全置換）
 [Unit]
 Description=EduNotes App
-After=network.target
+After=network-online.target
+Wants=network-online.target
 
 [Service]
 Type=simple
 User=edunotes
 Group=edunotes
-EnvironmentFile=/etc/edunotes/env
+EnvironmentFile=-/etc/edunotes/env       # ← マイナーチェンジ：ファイルが無くても起動継続
 WorkingDirectory=/opt/edunotes
 ExecStartPre=/usr/bin/install -d -o edunotes -g edunotes -m 0755 /var/edunotes/uploads
-ExecStart=/usr/bin/node server.js
+ExecStart=/usr/bin/env node server.js     # ← node のフルパスより堅牢に
 Restart=always
 RestartSec=3
 LimitNOFILE=65535
+
+# npm / Node 用環境変数を安全に継承（特に HOME）
+Environment=HOME=/home/edunotes
+Environment=NODE_ENV=production
+Environment=PORT=3000
 
 [Install]
 WantedBy=multi-user.target

@@ -1,4 +1,3 @@
-# ansible/roles/web/tasks/main.yml（全置換）
 ---
 # 1) パッケージ
 - name: Install base packages
@@ -26,7 +25,7 @@
     state: present
     update_cache: yes
 
-# 3) アプリ用ユーザー/ディレクトリ
+# 3) アプリ用ユーザー/ディレクトリ（★ホーム作成＆/bin/bash）
 - name: Ensure app group
   group:
     name: edunotes
@@ -37,10 +36,23 @@
     name: edunotes
     group: edunotes
     system: yes
-    shell: /bin/bash
-    create_home: no
+    shell: /bin/bash          # ← 変更点
+    create_home: yes          # ← 変更点
+    home: /home/edunotes      # ← 追加（明示）
 
-- name: Create directories
+- name: Ensure HOME, npm cache, and ansible tmp
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: edunotes
+    group: edunotes
+    mode: "0755"
+  loop:
+    - /home/edunotes
+    - /home/edunotes/.npm
+    - /home/edunotes/.ansible/tmp
+
+- name: Create app and etc dirs
   file:
     path: "{{ item }}"
     state: directory
@@ -62,10 +74,10 @@
   git:
     repo: "{{ app_repo }}"
     version: "{{ app_branch }}"
-    dest: /opt/edunotes
+    dest: /opt/edunotes          # ← /opt/edunotes 直下に配置
     force: yes
   when: app_repo | length > 0
-  become: true
+  become: true                    # ← 追加
   become_user: edunotes
 
 - name: Install dependencies (ci if lock, else install)
@@ -80,20 +92,15 @@
   args:
     executable: /bin/bash
   when: app_repo | length > 0
-  become: true
+  become: true                    # ← 追加
   become_user: edunotes
+  environment:                    # ← 追加（EACCES回避）
+    HOME: /home/edunotes
+    npm_config_cache: /home/edunotes/.npm
 
-# 4.5) repo が無い/空の場合は最小サーバーを seed（教材で詰まないように）
+# 4.5) repo 未設定でも /healthz を上げる “保険” の最小アプリ
 - name: Seed minimal app when repo is not provided
   block:
-    - name: Ensure /opt/edunotes exists (owned by edunotes)
-      file:
-        path: /opt/edunotes
-        state: directory
-        owner: edunotes
-        group: edunotes
-        mode: "0755"
-
     - name: Create minimal server.js
       copy:
         dest: /opt/edunotes/server.js
@@ -112,15 +119,24 @@
 
     - name: Init package.json if missing
       command: npm init -y
-      args: { chdir: /opt/edunotes, creates: /opt/edunotes/package.json }
+      args:
+        chdir: /opt/edunotes
+        creates: /opt/edunotes/package.json
       become: true
       become_user: edunotes
+      environment:
+        HOME: /home/edunotes
+        npm_config_cache: /home/edunotes/.npm
 
     - name: Install express for minimal app
       command: npm install express --production
-      args: { chdir: /opt/edunotes }
+      args:
+        chdir: /opt/edunotes
       become: true
       become_user: edunotes
+      environment:
+        HOME: /home/edunotes
+        npm_config_cache: /home/edunotes/.npm
   when: app_repo | length == 0
 
 # 5) .env（フェーズ1：ローカル添付・非Redis）
@@ -151,7 +167,7 @@
     path: /etc/nginx/sites-enabled/default
     state: absent
 
-- name: Test and restart nginx
+- name: Test nginx config
   command: nginx -t
   register: nginx_test
   changed_when: false
@@ -183,4 +199,3 @@
   retries: 30
   delay: 3
   until: health.status == 200
-
