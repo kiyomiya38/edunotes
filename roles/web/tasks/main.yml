@@ -37,7 +37,7 @@
     name: edunotes
     group: edunotes
     system: yes
-    shell: /usr/sbin/nologin
+    shell: /bin/bash
     create_home: no
 
 - name: Create directories
@@ -65,14 +65,63 @@
     dest: /opt/edunotes
     force: yes
   when: app_repo | length > 0
+  become: true
   become_user: edunotes
 
-- name: Install dependencies (npm ci)
-  command: npm ci --production
+- name: Install dependencies (ci if lock, else install)
+  shell: |
+    set -e
+    cd /opt/edunotes
+    if [ -f package-lock.json ]; then
+      npm ci --production
+    elif [ -f package.json ]; then
+      npm install --production
+    fi
   args:
-    chdir: /opt/edunotes
+    executable: /bin/bash
   when: app_repo | length > 0
+  become: true
   become_user: edunotes
+
+# 4.5) repo が無い/空の場合は最小サーバーを seed（教材で詰まないように）
+- name: Seed minimal app when repo is not provided
+  block:
+    - name: Ensure /opt/edunotes exists (owned by edunotes)
+      file:
+        path: /opt/edunotes
+        state: directory
+        owner: edunotes
+        group: edunotes
+        mode: "0755"
+
+    - name: Create minimal server.js
+      copy:
+        dest: /opt/edunotes/server.js
+        owner: edunotes
+        group: edunotes
+        mode: "0644"
+        content: |
+          const express = require("express");
+          const app = express();
+          app.get("/", (req,res)=>res.send("ok"));
+          app.get("/healthz",(req,res)=>res.send("ok"));
+          app.get("/readyz",(req,res)=>res.send("ok"));
+          app.get("/metrics",(req,res)=>res.type("text/plain").send("# HELP dummy 1\n# TYPE dummy counter\ndummy 1\n"));
+          const port = process.env.PORT || 3000;
+          app.listen(port, ()=>console.log("listen", port));
+
+    - name: Init package.json if missing
+      command: npm init -y
+      args: { chdir: /opt/edunotes, creates: /opt/edunotes/package.json }
+      become: true
+      become_user: edunotes
+
+    - name: Install express for minimal app
+      command: npm install express --production
+      args: { chdir: /opt/edunotes }
+      become: true
+      become_user: edunotes
+  when: app_repo | length == 0
 
 # 5) .env（フェーズ1：ローカル添付・非Redis）
 - name: Render env file

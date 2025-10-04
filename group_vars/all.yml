@@ -1,7 +1,7 @@
 project: "edunotes"
 domain_name: "notes.infra-skills.com"
 
-app_repo: "https://github.com/example/edunotes.git"
+app_repo: "https://github.com/kiyomiya38/edunotes-app.git"
 app_branch: "main"
 
 db_endpoint: "CHANGE_ME_RDS_ENDPOINT"
