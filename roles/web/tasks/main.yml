@@ -136,9 +136,3 @@
   delay: 3
   until: health.status == 200
 
-# Handlers
-- name: Restart nginx
-  listen: Restart nginx
-  service:
-    name: nginx
-    state: restarted
