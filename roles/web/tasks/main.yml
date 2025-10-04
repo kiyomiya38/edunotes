@@ -68,10 +68,9 @@
   become_user: edunotes
 
 - name: Install dependencies (npm ci)
-  community.general.npm:
-    path: /opt/edunotes
-    production: true
-    ci: true
+  command: npm ci --production
+  args:
+    chdir: /opt/edunotes
   when: app_repo | length > 0
   become_user: edunotes
 
