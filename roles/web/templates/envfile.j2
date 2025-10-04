@@ -1,28 +1,28 @@
-# ansible/roles/web/templates/envfile.j2（全置換）
+# ===== Base =====
 NODE_ENV=production
 PORT=3000
 
-# App
-UPLOADS_DIR=/var/edunotes/uploads
-SESSION_SECRET={{ lookup('env','SESSION_SECRET') | default('change-me-please', true) }}
+# ===== App =====
+UPLOADS_DIR={{ (UPLOADS_DIR | default(lookup('env','UPLOADS_DIR'), true)) | default('/var/edunotes/uploads', true) }}
+SESSION_SECRET={{ (SESSION_SECRET | default(lookup('env','SESSION_SECRET'), true)) | default('change-me-please', true) }}
 
-# DB (PostgreSQL)
+# ===== DB (PostgreSQL) =====
 DB_CLIENT=pg
-DB_HOST={{ lookup('env','DB_HOST') | default('REPLACE_DB_HOST', true) }}
-DB_PORT={{ lookup('env','DB_PORT') | default('5432', true) }}
-DB_NAME={{ lookup('env','DB_NAME') | default('edunotes', true) }}
-DB_USER={{ lookup('env','DB_USER') | default('edunotes_app', true) }}
-DB_PASSWORD={{ lookup('env','DB_PASSWORD') | default('REPLACE_DB_PASSWORD', true) }}
-DATABASE_URL=postgres://{{ lookup('env','DB_USER') | default('edunotes_app', true) }}:{{ lookup('env','DB_PASSWORD') | default('REPLACE_DB_PASSWORD', true) }}@{{ lookup('env','DB_HOST') | default('REPLACE_DB_HOST', true) }}:{{ lookup('env','DB_PORT') | default('5432', true) }}/{{ lookup('env','DB_NAME') | default('edunotes', true) }}
+DB_HOST={{ (DB_HOST | default(lookup('env','DB_HOST'), true)) | default('REPLACE_DB_HOST', true) }}
+DB_PORT={{ (DB_PORT | default(lookup('env','DB_PORT'), true)) | default('5432', true) }}
+DB_NAME={{ (DB_NAME | default(lookup('env','DB_NAME'), true)) | default('edunotes', true) }}
+DB_USER={{ (DB_USER | default(lookup('env','DB_USER'), true)) | default('edunotes_app', true) }}
+DB_PASSWORD={{ (DB_PASSWORD | default(lookup('env','DB_PASSWORD'), true)) | default('REPLACE_DB_PASSWORD', true) }}
+DATABASE_URL=postgres://{{ (DB_USER | default(lookup('env','DB_USER'), true)) | default('edunotes_app', true) }}:{{ (DB_PASSWORD | default(lookup('env','DB_PASSWORD'), true)) | default('REPLACE_DB_PASSWORD', true) }}@{{ (DB_HOST | default(lookup('env','DB_HOST'), true)) | default('REPLACE_DB_HOST', true) }}:{{ (DB_PORT | default(lookup('env','DB_PORT'), true)) | default('5432', true) }}/{{ (DB_NAME | default(lookup('env','DB_NAME'), true)) | default('edunotes', true) }}
 
-# Redis (Phase2で使用)
-# USE_REDIS={{ lookup('env','USE_REDIS') | default('false', true) }}
-# REDIS_URL={{ lookup('env','REDIS_URL') | default('', true) }}
+# ===== Redis (Phase2で使用) =====
+# USE_REDIS={{ (USE_REDIS | default(lookup('env','USE_REDIS'), true)) | default('false', true) }}
+# REDIS_URL={{ (REDIS_URL | default(lookup('env','REDIS_URL'), true)) | default('', true) }}
 
-# S3/MinIO (Phase2で使用)
-# STORAGE_BACKEND=s3
-# S3_ENDPOINT={{ lookup('env','S3_ENDPOINT') | default('', true) }}
-# S3_BUCKET={{ lookup('env','S3_BUCKET') | default('', true) }}
-# S3_ACCESS_KEY={{ lookup('env','S3_ACCESS_KEY') | default('', true) }}
-# S3_SECRET_KEY={{ lookup('env','S3_SECRET_KEY') | default('', true) }}
-# S3_USE_PATH_STYLE={{ lookup('env','S3_USE_PATH_STYLE') | default('true', true) }}
+# ===== S3/MinIO (Phase2で使用) =====
+# STORAGE_BACKEND={{ (STORAGE_BACKEND | default(lookup('env','STORAGE_BACKEND'), true)) | default('', true) }}
+# S3_ENDPOINT={{ (S3_ENDPOINT | default(lookup('env','S3_ENDPOINT'), true)) | default('', true) }}
+# S3_BUCKET={{ (S3_BUCKET | default(lookup('env','S3_BUCKET'), true)) | default('', true) }}
+# S3_ACCESS_KEY={{ (S3_ACCESS_KEY | default(lookup('env','S3_ACCESS_KEY'), true)) | default('', true) }}
+# S3_SECRET_KEY={{ (S3_SECRET_KEY | default(lookup('env','S3_SECRET_KEY'), true)) | default('', true) }}
+# S3_USE_PATH_STYLE={{ (S3_USE_PATH_STYLE | default(lookup('env','S3_USE_PATH_STYLE'), true)) | default('true', true) }}
