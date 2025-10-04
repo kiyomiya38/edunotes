@@ -1,64 +1,143 @@
+---
+# 0) 必要パッケージ（Ubuntu/Debian想定）
+- name: Install base packages
+  ansible.builtin.apt:
+    name:
+      - curl
+      - gnupg
+      - nginx
+      - git
+      - build-essential
+    state: present
+    update_cache: yes
+
+# 1) Node.js 20 (Nodesource)
+- name: Setup NodeSource repo
+  ansible.builtin.shell: |
+    set -e
+    curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+  args:
+    executable: /bin/bash
+
 - name: Install Node.js
-  ansible.builtin.dnf:
+  ansible.builtin.apt:
     name: nodejs
     state: present
+    update_cache: yes
 
-- name: Configure Nginx vhost
+# 2) アプリ用ユーザー/ディレクトリ
+- name: Ensure app group
+  ansible.builtin.group:
+    name: edunotes
+    system: yes
+
+- name: Ensure app user
+  ansible.builtin.user:
+    name: edunotes
+    group: edunotes
+    system: yes
+    shell: /usr/sbin/nologin
+    create_home: no
+
+- name: Create directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: edunotes
+    group: edunotes
+    mode: "0755"
+  loop:
+    - /opt/edunotes
+    - /etc/edunotes
+    - /var/edunotes/uploads
+
+# 3) アプリ配布（環境変数で指定できるように。無ければスキップ）
+- name: Set default app repo vars
+  ansible.builtin.set_fact:
+    app_repo: "{{ lookup('env','APP_REPO_URL') | default('', true) }}"
+    app_branch: "{{ lookup('env','APP_REPO_BRANCH') | default('main', true) }}"
+
+- name: Clone app repository (optional)
+  ansible.builtin.git:
+    repo: "{{ app_repo }}"
+    version: "{{ app_branch }}"
+    dest: /opt/edunotes
+    force: yes
+  when: app_repo | length > 0
+  become_user: edunotes
+
+# 4) 依存インストール
+- name: Install dependencies
+  community.general.npm:
+    path: /opt/edunotes
+    production: true
+    ci: true
+  when: app_repo | length > 0
+  become_user: edunotes
+
+# 5) 机上のDB/REDIS/MINIO変数は SSMやUserDataから環境変数で渡す想定
+#    envfile.j2 側で「フェーズ1はローカル添付/非Redis」に寄せます
+- name: Render env file
+  ansible.builtin.template:
+    src: envfile.j2
+    dest: /etc/edunotes/env
+    owner: edunotes
+    group: edunotes
+    mode: "0640"
+
+# 6) Nginx vhost（Ubuntu流儀: sites-available → sites-enabled）
+- name: Render nginx vhost
   ansible.builtin.template:
     src: nginx.conf.j2
-    dest: /etc/nginx/conf.d/edunotes.conf
-- name: Restart Nginx
+    dest: /etc/nginx/sites-available/edunotes.conf
+    mode: "0644"
+
+- name: Enable nginx vhost
+  ansible.builtin.file:
+    src: /etc/nginx/sites-available/edunotes.conf
+    dest: /etc/nginx/sites-enabled/edunotes.conf
+    state: link
+    force: yes
+
+- name: Remove default nginx site
+  ansible.builtin.file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+
+- name: Test nginx config
+  ansible.builtin.command: nginx -t
+  register: nginx_test
+  changed_when: false
+
+- name: Restart nginx
   ansible.builtin.systemd:
     name: nginx
     state: restarted
     enabled: true
 
-- name: Create edunotes directory
-  ansible.builtin.file:
-    path: /opt/edunotes
-    state: directory
-    mode: '0755'
-
-- name: Deploy app from git
-  ansible.builtin.git:
-    repo: "{{ app_repo }}"
-    dest: /opt/edunotes
-    version: "{{ app_branch }}"
-    force: yes
-
-- name: Install dependencies
-  ansible.builtin.command: npm ci
-  args: { chdir: /opt/edunotes }
-
-# Look up secrets & hosts
-- name: Lookup secrets from SSM
-  set_fact:
-    db_password: "{{ lookup('amazon.aws.aws_ssm', ssm_db_password, decrypt=true, region=lookup('env','AWS_REGION')|default('ap-northeast-3', true)) }}"
-    redis_password: "{{ lookup('amazon.aws.aws_ssm', ssm_redis_password, decrypt=true, region=lookup('env','AWS_REGION')|default('ap-northeast-3', true)) }}"
-    minio_access_key: "{{ lookup('amazon.aws.aws_ssm', ssm_minio_access_key, decrypt=true, region=lookup('env','AWS_REGION')|default('ap-northeast-3', true)) }}"
-    minio_secret_key: "{{ lookup('amazon.aws.aws_ssm', ssm_minio_secret_key, decrypt=true, region=lookup('env','AWS_REGION')|default('ap-northeast-3', true)) }}"
-
-- name: Set infra hosts from inventory
-  set_fact:
-    redis_host: "{{ hostvars[groups['redis'][0]].inventory_hostname }}"
-    minio_host: "{{ hostvars[groups['minio'][0]].inventory_hostname }}"
-
-- name: Ensure env dir
-  ansible.builtin.file: { path: /etc/edunotes, state: directory, mode: '0755' }
-
-- name: Put env
-  ansible.builtin.template:
-    src: envfile.j2
-    dest: /etc/edunotes/env
-    mode: '0640'
-
-- name: Create systemd service
+# 7) systemd unit（非root）
+- name: Render systemd service
   ansible.builtin.template:
     src: edunotes.service.j2
     dest: /etc/systemd/system/edunotes.service
+    mode: "0644"
 
-- name: Enable & start app
+- name: daemon-reload
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+- name: Start & enable app
   ansible.builtin.systemd:
     name: edunotes
     enabled: true
     state: started
+
+# 8) ヘルスチェック（/healthz が 200 を返す前提。DB疎通を実装推奨）
+- name: Wait for healthz
+  ansible.builtin.uri:
+    url: http://127.0.0.1:3000/healthz
+    status_code: 200
+  register: health
+  retries: 30
+  delay: 3
+  until: health.status == 200

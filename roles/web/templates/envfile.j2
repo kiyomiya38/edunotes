@@ -1,9 +1,29 @@
+# ===== Base =====
 NODE_ENV=production
 PORT=3000
-DATABASE_URL=postgres://{{ db_username }}:{{ db_password }}@{{ db_endpoint }}:5432/edunotes
-SESSION_SECRET={{ session_secret }}
-REDIS_URL=redis://:{{ redis_password }}@{{ redis_host }}:6379
-MINIO_ENDPOINT=http://{{ minio_host }}:9000
-MINIO_ACCESS_KEY={{ minio_access_key }}
-MINIO_SECRET_KEY={{ minio_secret_key }}
-MINIO_BUCKET={{ minio_bucket }}
+
+# ===== App =====
+# ローカル保存（フェーズ1の「痛み」体験用）
+UPLOADS_DIR=/var/edunotes/uploads
+SESSION_SECRET={{ lookup('env','SESSION_SECRET') | default('change-me-please', true) }}
+
+# ===== DB (PostgreSQL) =====
+DB_CLIENT=pg
+DB_HOST={{ lookup('env','DB_HOST') | default('REPLACE_DB_HOST', true) }}
+DB_PORT={{ lookup('env','DB_PORT') | default('5432', true) }}
+DB_NAME={{ lookup('env','DB_NAME') | default('edunotes', true) }}
+DB_USER={{ lookup('env','DB_USER') | default('edunotes_app', true) }}
+DB_PASSWORD={{ lookup('env','DB_PASSWORD') | default('REPLACE_DB_PASSWORD', true) }}
+DATABASE_URL=postgres://{{ lookup('env','DB_USER') | default('edunotes_app', true) }}:{{ lookup('env','DB_PASSWORD') | default('REPLACE_DB_PASSWORD', true) }}@{{ lookup('env','DB_HOST') | default('REPLACE_DB_HOST', true) }}:{{ lookup('env','DB_PORT') | default('5432', true) }}/{{ lookup('env','DB_NAME') | default('edunotes', true) }}
+
+# ===== Redis (Phase2で使用) =====
+# USE_REDIS={{ lookup('env','USE_REDIS') | default('false', true) }}
+# REDIS_URL={{ lookup('env','REDIS_URL') | default('', true) }}
+
+# ===== S3/MinIO (Phase2で使用) =====
+# STORAGE_BACKEND=s3
+# S3_ENDPOINT={{ lookup('env','S3_ENDPOINT') | default('', true) }}
+# S3_BUCKET={{ lookup('env','S3_BUCKET') | default('', true) }}
+# S3_ACCESS_KEY={{ lookup('env','S3_ACCESS_KEY') | default('', true) }}
+# S3_SECRET_KEY={{ lookup('env','S3_SECRET_KEY') | default('', true) }}
+# S3_USE_PATH_STYLE={{ lookup('env','S3_USE_PATH_STYLE') | default('true', true) }}
