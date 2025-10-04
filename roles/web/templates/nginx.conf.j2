@@ -1,32 +1,75 @@
-# ansible/roles/web/templates/nginx.conf.j2（全置換）
 server {
-  listen 80;
-  listen [::]:80;
+  listen 80 default_server;
+  listen [::]:80 default_server;
   server_name _;
 
+  # 静的ファイル（あれば使う）
   root /opt/edunotes/public;
-  location /assets/ { try_files $uri =404; access_log off; expires 7d; }
 
+  # 代表的な静的配信パス（必要なければ消してOK）
+  location /assets/ {
+    try_files $uri =404;
+    access_log off;
+    expires 7d;
+  }
+
+  # ---- アプリ（Node on localhost:{{ app_port|default(3000) }}) へのプロキシ ----
   location / {
-    proxy_pass http://127.0.0.1:3000;
-    proxy_set_header Host $host;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_pass         http://127.0.0.1:{{ app_port|default(3000) }};
     proxy_http_version 1.1;
-    proxy_set_header Upgrade $http_upgrade;
-    proxy_set_header Connection "upgrade";
+    proxy_set_header   Host $host;
+    proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header   X-Forwarded-Proto $scheme;
+    proxy_set_header   Upgrade $http_upgrade;
+    proxy_set_header   Connection "upgrade";
     proxy_read_timeout 60s;
+    proxy_redirect     off;
   }
 
-  location = /healthz {
-    proxy_pass http://127.0.0.1:3000/healthz;
-    proxy_set_header Host $host;
+  # ---- 健康診断系は明示で素通し（ALB/監視向け）----
+  location = /healthz  {
+    proxy_pass         http://127.0.0.1:{{ app_port|default(3000) }}/healthz;
     proxy_http_version 1.1;
-    proxy_set_header Connection "";
+    proxy_set_header   Host $host;
+    proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header   X-Forwarded-Proto $scheme;
+    proxy_set_header   Connection "";
+    access_log off;
   }
 
+  location = /readyz   {
+    proxy_pass         http://127.0.0.1:{{ app_port|default(3000) }}/readyz;
+    proxy_http_version 1.1;
+    proxy_set_header   Host $host;
+    proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header   X-Forwarded-Proto $scheme;
+    proxy_set_header   Connection "";
+    access_log off;
+  }
+
+  location = /metrics  {
+    proxy_pass         http://127.0.0.1:{{ app_port|default(3000) }}/metrics;
+    proxy_http_version 1.1;
+    proxy_set_header   Host $host;
+    proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header   X-Forwarded-Proto $scheme;
+    proxy_set_header   Connection "";
+    access_log off;
+  }
+
+  # ---- 全体設定（必要に応じて調整）----
   client_max_body_size 50m;
   sendfile on;
   keepalive_timeout 65;
+
   access_log /var/log/nginx/edunotes_access.log;
   error_log  /var/log/nginx/edunotes_error.log;
+
+  # 502等の時に少し見やすく（任意）
+  error_page 502 503 504 /50x.html;
+  location = /50x.html {
+    internal;
+    return 200 "Upstream temporarily unavailable\n";
+    add_header Content-Type text/plain;
+  }
 }
