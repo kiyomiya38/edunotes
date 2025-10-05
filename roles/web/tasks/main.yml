@@ -167,6 +167,11 @@
     path: /etc/nginx/sites-enabled/default
     state: absent
 
+- name: Remove any legacy vhost in conf.d to avoid conflicts
+  file:
+    path: /etc/nginx/conf.d/edunotes.conf
+    state: absent
+
 - name: Test nginx config
   command: nginx -t
   register: nginx_test
