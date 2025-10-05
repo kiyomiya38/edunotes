@@ -178,12 +178,6 @@
   changed_when: false
   notify: Restart nginx
 
-- name: Reload nginx to apply new vhost immediately
-  command: systemctl reload nginx
-  when: nginx_test.rc == 0
-  become: true
-  tags: reload_nginx
-
 # 7) systemd unit（非root）
 - name: Render systemd service
   template:
@@ -200,6 +194,13 @@
     name: edunotes
     enabled: true
     state: started
+
+# ✅ アプリ起動後にnginxを再ロード
+- name: Reload nginx to apply new vhost (after app is up)
+  command: systemctl reload nginx
+  when: nginx_test.rc == 0
+  become: true
+  tags: reload_nginx
 
 # 8) ヘルスチェック (/healthz が 200 を返すこと)
 - name: Wait for healthz
