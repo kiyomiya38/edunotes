@@ -83,17 +83,27 @@
     db_user: "{{ db_user_cli.stdout }}"
     raw_db_pass: "{{ db_pass_cli.stdout }}"
 
-# --- Secret が JSON 形式なら { "password": "..." } を採用 ---
-- name: "Use JSON field when secret is JSON"
+# --- Secret が dict ですでにパース済みの場合（例：raw_db_pass が mapping） ---
+- name: "Use JSON field when secret is already a dict"
+  ansible.builtin.set_fact:
+    db_pass: "{{ raw_db_pass.password if ('password' in raw_db_pass) else raw_db_pass }}"
+  when: raw_db_pass is mapping
+
+# --- Secret が JSON 文字列の場合（先頭が { の文字列） ---
+- name: "Use JSON field when secret is a JSON string"
   ansible.builtin.set_fact:
     db_pass: "{{ (raw_db_pass | from_json).password }}"
-  when: raw_db_pass is regex('^\\s*{')
+  when:
+    - raw_db_pass is string
+    - raw_db_pass | regex_search('^\\s*{')
 
-# --- プレーン文字列ならそのまま採用 ---
+# --- Secret がプレーン文字列の場合 ---
 - name: "Use raw string when secret is plain text"
   ansible.builtin.set_fact:
     db_pass: "{{ raw_db_pass }}"
-  when: raw_db_pass is not regex('^\\s*{')
+  when:
+    - raw_db_pass is string
+    - not (raw_db_pass | regex_search('^\\s*{'))
 
 # --- (任意) Redis も SSM から取得したい場合 ---
 - name: "Read Redis host via AWS CLI"
