@@ -355,7 +355,7 @@
       - curl
       - unzip
     state: present
-  update_cache: yes
+    update_cache: yes
 
 # アーキ検出（x86_64 / aarch64）
 - name: Detect arch for CW Agent
