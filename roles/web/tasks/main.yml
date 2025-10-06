@@ -1,65 +1,84 @@
 ---
-# === (追加) SSM & Secrets 取得 ===
-- name: Read DB host from SSM
-  community.aws.aws_ssm_parameter_store:
-    name: "{{ ssm_db_host }}"
-    region: "{{ aws_region }}"
-    decrypt: false
-  register: ssm_db_host_val
+# --- PREP: AWS CLI をインストール（Ubuntu/Debian標準パッケージでOK） ---
+- name: Ensure awscli is installed
+  ansible.builtin.apt:
+    name: awscli
+    state: present
+    update_cache: yes
 
-- name: Read DB name from SSM
-  community.aws.aws_ssm_parameter_store:
-    name: "{{ ssm_db_name }}"
-    region: "{{ aws_region }}"
-    decrypt: false
-  register: ssm_db_name_val
+# --- DB: SSMから host/name/user を取得（AWS CLI版） ---
+- name: Read DB host via AWS CLI
+  ansible.builtin.command: >
+    aws ssm get-parameter
+    --name {{ ssm_db_host }}
+    --region {{ aws_region }}
+    --query 'Parameter.Value'
+    --output text
+  register: db_host_cli
+  changed_when: false
 
-- name: Read DB user from SSM
-  community.aws.aws_ssm_parameter_store:
-    name: "{{ ssm_db_user }}"
-    region: "{{ aws_region }}"
-    decrypt: false
-  register: ssm_db_user_val
+- name: Read DB name via AWS CLI
+  ansible.builtin.command: >
+    aws ssm get-parameter
+    --name {{ ssm_db_name }}
+    --region {{ aws_region }}
+    --query 'Parameter.Value'
+    --output text
+  register: db_name_cli
+  changed_when: false
 
-- name: Read DB password from Secrets Manager
-  community.aws.aws_secretsmanager_secret:
-    name: "{{ secret_db_password }}"
-    region: "{{ aws_region }}"
-  register: secret_db_pass
+- name: Read DB user via AWS CLI
+  ansible.builtin.command: >
+    aws ssm get-parameter
+    --name {{ ssm_db_user }}
+    --region {{ aws_region }}
+    --query 'Parameter.Value'
+    --output text
+  register: db_user_cli
+  changed_when: false
 
-- name: Parse DB password string/json
-  set_fact:
+# --- DB: Secrets Manager から password を取得（AWS CLI版） ---
+- name: Read DB password via AWS CLI
+  ansible.builtin.command: >
+    aws secretsmanager get-secret-value
+    --secret-id {{ secret_db_password }}
+    --region {{ aws_region }}
+    --query SecretString
+    --output text
+  register: db_pass_cli
+  changed_when: false
+
+- name: Parse DB password (raw string or JSON {password: ...}) and expose facts
+  ansible.builtin.set_fact:
+    db_host: "{{ db_host_cli.stdout }}"
+    db_name: "{{ db_name_cli.stdout }}"
+    db_user: "{{ db_user_cli.stdout }}"
     db_pass: >-
       {{
-        (secret_db_pass.secret_string | from_json).password
-        if (secret_db_pass.secret_string is search('\"password\"'))
-        else secret_db_pass.secret_string
+        (db_pass_cli.stdout | regex_search('\"password\"'))
+        | ternary( (db_pass_cli.stdout | from_json).password,
+                   db_pass_cli.stdout )
       }}
 
-# (任意) Redis を使う場合に備えて（今は failed_when: false でスルー）
-- name: Read Redis host (optional)
-  community.aws.aws_ssm_parameter_store:
-    name: "{{ ssm_redis_host }}"
-    region: "{{ aws_region }}"
-    decrypt: false
-  register: ssm_redis_host_val
-  failed_when: false
+# --- (任意) Redis も SSMで取得したい場合は同じ要領で ---
+- name: Read Redis host via AWS CLI
+  command: >
+    aws ssm get-parameter --name {{ ssm_redis_host }} --region {{ aws_region }}
+    --query 'Parameter.Value' --output text
+  register: redis_host_cli
+  changed_when: false
 
-- name: Read Redis password (optional)
-  community.aws.aws_ssm_parameter_store:
-    name: "{{ ssm_redis_password }}"
-    region: "{{ aws_region }}"
-    decrypt: true
-  register: ssm_redis_pass_val
-  failed_when: false
+- name: Read Redis password via AWS CLI
+  command: >
+    aws ssm get-parameter --name {{ ssm_redis_password }} --with-decryption
+    --region {{ aws_region }} --query 'Parameter.Value' --output text
+  register: redis_pass_cli
+  changed_when: false
 
-- name: Set common facts for templates
+- name: Set Redis facts
   set_fact:
-    db_host: "{{ ssm_db_host_val.parameter.value }}"
-    db_name: "{{ ssm_db_name_val.parameter.value }}"
-    db_user: "{{ ssm_db_user_val.parameter.value }}"
-    redis_host: "{{ (ssm_redis_host_val.parameter.value | default('')) }}"
-    redis_pass: "{{ (ssm_redis_pass_val.parameter.value | default('')) }}"
+    redis_host: "{{ redis_host_cli.stdout | default('') }}"
+    redis_pass: "{{ redis_pass_cli.stdout | default('') }}"
 
 # 1) パッケージ
 - name: Install base packages
