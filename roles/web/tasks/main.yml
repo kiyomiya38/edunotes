@@ -43,6 +43,9 @@
     --output text
   register: db_host_cli
   changed_when: false
+  retries: 30
+  delay: 10
+  until: db_host_cli.rc == 0 and (db_host_cli.stdout | length) > 0
 
 - name: "Read DB name via AWS CLI"
   ansible.builtin.command: >
@@ -53,6 +56,9 @@
     --output text
   register: db_name_cli
   changed_when: false
+  retries: 30
+  delay: 10
+  until: db_name_cli.rc == 0 and (db_name_cli.stdout | length) > 0
 
 - name: "Read DB user via AWS CLI"
   ansible.builtin.command: >
@@ -63,6 +69,9 @@
     --output text
   register: db_user_cli
   changed_when: false
+  retries: 30
+  delay: 10
+  until: db_user_cli.rc == 0 and (db_user_cli.stdout | length) > 0
 
 # --- DB: Secrets Manager から password を取得（AWS CLI 版） ---
 - name: "Read DB password via AWS CLI"
@@ -74,6 +83,10 @@
     --output text
   register: db_pass_cli
   changed_when: false
+  retries: 30
+  delay: 10
+  # JSON でもプレーンでも値が返ってくることを確認
+  until: db_pass_cli.rc == 0 and (db_pass_cli.stdout | length) > 0
 
 # --- 取得値を一旦そのまま facts 化（YAML 崩れ防止のためにシンプルに） ---
 - name: "Expose raw DB values as facts"
