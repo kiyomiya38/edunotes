@@ -1,13 +1,13 @@
 ---
-# --- PREP: AWS CLI をインストール（Ubuntu/Debian標準パッケージでOK） ---
+# --- PREP: awscli をインストール（Ubuntu/Debian 標準パッケージでOK） ---
 - name: Ensure awscli is installed
   ansible.builtin.apt:
     name: awscli
     state: present
     update_cache: yes
 
-# --- DB: SSMから host/name/user を取得（AWS CLI版） ---
-- name: Read DB host via AWS CLI
+# --- DB: SSM から host/name/user を取得（AWS CLI 版） ---
+- name: "Read DB host via AWS CLI"
   ansible.builtin.command: >
     aws ssm get-parameter
     --name {{ ssm_db_host }}
@@ -17,7 +17,7 @@
   register: db_host_cli
   changed_when: false
 
-- name: Read DB name via AWS CLI
+- name: "Read DB name via AWS CLI"
   ansible.builtin.command: >
     aws ssm get-parameter
     --name {{ ssm_db_name }}
@@ -27,7 +27,7 @@
   register: db_name_cli
   changed_when: false
 
-- name: Read DB user via AWS CLI
+- name: "Read DB user via AWS CLI"
   ansible.builtin.command: >
     aws ssm get-parameter
     --name {{ ssm_db_user }}
@@ -37,8 +37,8 @@
   register: db_user_cli
   changed_when: false
 
-# --- DB: Secrets Manager から password を取得（AWS CLI版） ---
-- name: Read DB password via AWS CLI
+# --- DB: Secrets Manager から password を取得（AWS CLI 版） ---
+- name: "Read DB password via AWS CLI"
   ansible.builtin.command: >
     aws secretsmanager get-secret-value
     --secret-id {{ secret_db_password }}
@@ -48,35 +48,52 @@
   register: db_pass_cli
   changed_when: false
 
-- name: Parse DB password (raw string or JSON {password: ...}) and expose facts
+# --- 取得値を一旦そのまま facts 化（YAML 崩れ防止のためにシンプルに） ---
+- name: "Expose raw DB values as facts"
   ansible.builtin.set_fact:
     db_host: "{{ db_host_cli.stdout }}"
     db_name: "{{ db_name_cli.stdout }}"
     db_user: "{{ db_user_cli.stdout }}"
-    db_pass: >-
-      {{
-        (db_pass_cli.stdout | regex_search('\"password\"'))
-        | ternary( (db_pass_cli.stdout | from_json).password,
-                   db_pass_cli.stdout )
-      }}
+    raw_db_pass: "{{ db_pass_cli.stdout }}"
 
-# --- (任意) Redis も SSMで取得したい場合は同じ要領で ---
-- name: Read Redis host via AWS CLI
-  command: >
-    aws ssm get-parameter --name {{ ssm_redis_host }} --region {{ aws_region }}
-    --query 'Parameter.Value' --output text
+# --- Secret が JSON 形式なら { "password": "..." } を採用 ---
+- name: "Use JSON field when secret is JSON"
+  ansible.builtin.set_fact:
+    db_pass: "{{ (raw_db_pass | from_json).password }}"
+  when: raw_db_pass is regex('^\\s*{')
+
+# --- プレーン文字列ならそのまま採用 ---
+- name: "Use raw string when secret is plain text"
+  ansible.builtin.set_fact:
+    db_pass: "{{ raw_db_pass }}"
+  when: raw_db_pass is not regex('^\\s*{')
+
+# --- (任意) Redis も SSM から取得したい場合 ---
+- name: "Read Redis host via AWS CLI"
+  ansible.builtin.command: >
+    aws ssm get-parameter
+    --name {{ ssm_redis_host }}
+    --region {{ aws_region }}
+    --query 'Parameter.Value'
+    --output text
   register: redis_host_cli
   changed_when: false
+  failed_when: false
 
-- name: Read Redis password via AWS CLI
-  command: >
-    aws ssm get-parameter --name {{ ssm_redis_password }} --with-decryption
-    --region {{ aws_region }} --query 'Parameter.Value' --output text
+- name: "Read Redis password via AWS CLI"
+  ansible.builtin.command: >
+    aws ssm get-parameter
+    --name {{ ssm_redis_password }}
+    --with-decryption
+    --region {{ aws_region }}
+    --query 'Parameter.Value'
+    --output text
   register: redis_pass_cli
   changed_when: false
+  failed_when: false
 
-- name: Set Redis facts
-  set_fact:
+- name: "Set Redis facts"
+  ansible.builtin.set_fact:
     redis_host: "{{ redis_host_cli.stdout | default('') }}"
     redis_pass: "{{ redis_pass_cli.stdout | default('') }}"
 
