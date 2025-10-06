@@ -1,24 +1,31 @@
+# group_vars/all.yml  ← 変数定義専用。余計な行は置かない
+aws_region: ap-northeast-3
+
 project: "edunotes"
 domain_name: "notes.infra-skills.com"
 
+# アプリ取得
 app_repo: "https://github.com/kiyomiya38/edunotes-app.git"
 app_branch: "main"
 
-db_endpoint: "CHANGE_ME_RDS_ENDPOINT"
-db_username: "edunotes"
-db_name: "edunotes"
+# ---- DB (SSM/Secrets の参照パスを統一) ----
+ssm_db_host: "/edunotes/db/host"
+ssm_db_name: "/edunotes/db/name"
+ssm_db_user: "/edunotes/db/user"
+secret_db_password: "/edunotes/db/password"
 
-ssm_db_password: "/edunotes/db/password"
+# ---- Redis（必要になったら使う。今はフェーズ2想定）----
+ssm_redis_host: "/edunotes/redis/host"
 ssm_redis_password: "/edunotes/redis/password"
-ssm_minio_access_key: "/edunotes/minio/access_key"
-ssm_minio_secret_key: "/edunotes/minio/secret_key"
 
-redis_host: "{{ hostvars[groups['redis'][0]]['inventory_hostname'] | default('10.81.32.20') }}"
-redis_port: 6379
+# ---- 共有ストレージ（フェーズ1は S3/EFS どちらでもOK）----
+# s3 を使う場合
+storage_mode: "s3"                # "efs" に切り替え可
+s3_bucket_uploads: "edunotes-uploads-bucket"
+s3_prefix_uploads: "uploads/"
 
-minio_host: "{{ hostvars[groups['minio'][0]]['inventory_hostname'] | default('10.81.48.30') }}"
-minio_port: 9000
-minio_bucket: "edunotes"
+# efs を使う場合（SSM に EFS ID を入れているなら、そのパスも追加可）
+ssm_efs_id: "/edunotes/efs/id"
 
-session_secret: "please_change_session_secret"
+# ---- その他 ----
 node_exporter_port: 9100

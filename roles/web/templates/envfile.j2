@@ -8,12 +8,29 @@ SESSION_SECRET={{ (SESSION_SECRET | default(lookup('env','SESSION_SECRET'), true
 
 # ===== DB (PostgreSQL) =====
 DB_CLIENT=pg
-DB_HOST={{ (DB_HOST | default(lookup('env','DB_HOST'), true)) | default('REPLACE_DB_HOST', true) }}
-DB_PORT={{ (DB_PORT | default(lookup('env','DB_PORT'), true)) | default('5432', true) }}
-DB_NAME={{ (DB_NAME | default(lookup('env','DB_NAME'), true)) | default('edunotes', true) }}
-DB_USER={{ (DB_USER | default(lookup('env','DB_USER'), true)) | default('edunotes_app', true) }}
-DB_PASSWORD={{ (DB_PASSWORD | default(lookup('env','DB_PASSWORD'), true)) | default('REPLACE_DB_PASSWORD', true) }}
-DATABASE_URL=postgres://{{ (DB_USER | default(lookup('env','DB_USER'), true)) | default('edunotes_app', true) }}:{{ (DB_PASSWORD | default(lookup('env','DB_PASSWORD'), true)) | default('REPLACE_DB_PASSWORD', true) }}@{{ (DB_HOST | default(lookup('env','DB_HOST'), true)) | default('REPLACE_DB_HOST', true) }}:{{ (DB_PORT | default(lookup('env','DB_PORT'), true)) | default('5432', true) }}/{{ (DB_NAME | default(lookup('env','DB_NAME'), true)) | default('edunotes', true) }}
+DB_HOST={{ db_host | default((DB_HOST | default(lookup('env','DB_HOST'), true)), true) | default('REPLACE_DB_HOST', true) }}
+DB_PORT={{ DB_PORT | default(lookup('env','DB_PORT'), true) | default('5432', true) }}
+DB_NAME={{ db_name | default((DB_NAME | default(lookup('env','DB_NAME'), true)), true) | default('edunotes', true) }}
+DB_USER={{ db_user | default((DB_USER | default(lookup('env','DB_USER'), true)), true) | default('edunotes_app', true) }}
+DB_PASSWORD={{ db_pass | default((DB_PASSWORD | default(lookup('env','DB_PASSWORD'), true)), true) | default('REPLACE_DB_PASSWORD', true) }}
+DATABASE_URL=postgres://{{ 
+  (db_user | default(DB_USER | default(lookup('env','DB_USER'), true), true) | default('edunotes_app', true)) 
+}}:{{
+  (db_pass | default(DB_PASSWORD | default(lookup('env','DB_PASSWORD'), true), true) | default('REPLACE_DB_PASSWORD', true))
+}}@{{
+  (db_host | default(DB_HOST | default(lookup('env','DB_HOST'), true), true) | default('REPLACE_DB_HOST', true))
+}}:{{
+  (DB_PORT | default(lookup('env','DB_PORT'), true) | default('5432', true))
+}}/{{
+  (db_name | default(DB_NAME | default(lookup('env','DB_NAME'), true), true) | default('edunotes', true))
+}}
+
+# ===== Storage (Phase1) =====
+STORAGE_MODE={{ storage_mode | default('s3') }}   # s3 or efs
+AWS_REGION={{ aws_region | default('ap-northeast-3') }}
+S3_BUCKET={{ s3_bucket_uploads | default('edunotes-uploads-bucket') }}
+S3_PREFIX={{ s3_prefix_uploads | default('uploads/') }}
+EFS_UPLOAD_DIR=/var/edunotes/uploads
 
 # ===== Redis (Phase2で使用) =====
 # USE_REDIS={{ (USE_REDIS | default(lookup('env','USE_REDIS'), true)) | default('false', true) }}
