@@ -245,15 +245,6 @@
   environment:                    # ← 追加（EACCES回避）
     HOME: /home/edunotes
     npm_config_cache: /home/edunotes/.npm
-    
-# 5) .env（フェーズ1：ローカル添付・非Redis）
-- name: Render env file
-  template:
-    src: envfile.j2
-    dest: /etc/edunotes/env
-    owner: edunotes
-    group: edunotes
-    mode: "0640"
 
 # 6) Nginx vhost（Ubuntu流儀）
 - name: Render nginx vhost

@@ -1,6 +1,6 @@
 - name: Ensure app dir exists
   ansible.builtin.file:
-    path: "{{ app_dir }}"
+    path: /opt/edunotes
     state: directory
     owner: edunotes
     group: edunotes
@@ -9,15 +9,15 @@
 - name: Deploy package.json (S3-ready)
   ansible.builtin.template:
     src: "package.json.j2"
-    dest: "{{ app_dir }}/package.json"
+    dest: "/opt/edunotes/package.json"
     owner: edunotes
     group: edunotes
     mode: "0644"
 
-- name: Deploy server.js (base app with /metrics, /readyz, S3 upload)
+- name: Deploy server.js (with /healthz)
   ansible.builtin.template:
     src: "server.js.j2"
-    dest: "{{ app_dir }}/server.js"
+    dest: "/opt/edunotes/server.js"
     owner: edunotes
     group: edunotes
     mode: "0644"
@@ -25,55 +25,34 @@
 - name: Deploy storage.js (S3 backend)
   ansible.builtin.template:
     src: "storage.js.j2"
-    dest: "{{ app_dir }}/storage.js"
+    dest: "/opt/edunotes/storage.js"
     owner: edunotes
     group: edunotes
     mode: "0644"
 
-# 環境変数は /etc/edunotes/env に集約（service と一致）
+# .env はここで作る（起動前に必ず存在させる）
 - name: Render env file
   ansible.builtin.template:
-    src: "envfile.j2"        # 既存のテンプレ名に合わせてください（= app.env.j2 なら差し替え）
+    src: "envfile.j2"
     dest: "/etc/edunotes/env"
     owner: root
     group: root
     mode: "0640"
 
-# lockfile の有無で npm を切替（ci が安全、無ければ install）
-- name: Install Node dependencies (ci if lock exists, else install)
+# 依存導入：lock があれば ci、無ければ install
+- name: Install Node dependencies (ci if lock, else install)
   ansible.builtin.shell: |
     set -euo pipefail
+    cd /opt/edunotes
     if [ -f package-lock.json ]; then
-      npm ci
+      npm ci --omit=dev
     else
       npm install --omit=dev
     fi
   args:
-    chdir: "{{ app_dir }}"
+    executable: /bin/bash
+  become: true
+  become_user: edunotes
   environment:
-    NODE_ENV: "{{ node_env | default('production') }}"
-
-- name: Restart edunotes service
-  ansible.builtin.systemd:
-    name: edunotes
-    state: restarted
-    enabled: yes
-    daemon_reload: yes
-
-# レース回避：Listen待ち → /healthz 確認
-- name: Wait for port 3000 to listen
-  ansible.builtin.wait_for:
-    host: 127.0.0.1
-    port: 3000
-    delay: 1
-    timeout: 30
-
-- name: Wait for healthz
-  ansible.builtin.uri:
-    url: http://127.0.0.1:3000/healthz
-    method: GET
-    status_code: 200
-  register: _health
-  until: _health.status == 200
-  retries: 10
-  delay: 2
+    HOME: /home/edunotes
+    npm_config_cache: /home/edunotes/.npm

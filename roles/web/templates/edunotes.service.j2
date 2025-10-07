@@ -1,33 +1,25 @@
 [Unit]
-Description=EduNotes App (Node.js)
-After=network-online.target
+Description=EduNotes App
+After=network-online.target nginx.service
 Wants=network-online.target
+Requires=nginx.service
 
 [Service]
 Type=simple
 User=edunotes
 Group=edunotes
-
-# 環境変数（/etc/edunotes/env に集約）
 EnvironmentFile=-/etc/edunotes/env
-
-# アプリの作業ディレクトリ（変数で可変）
-WorkingDirectory={{ app_dir }}
-
-# 起動前にアップロード用ディレクトリを用意（将来のローカル保存に備えて残す）
+WorkingDirectory=/opt/edunotes
 ExecStartPre=/usr/bin/install -d -o edunotes -g edunotes -m 0755 /var/edunotes/uploads
-
-# アプリ本体の起動
 ExecStart=/usr/bin/env node server.js
-
-# 再起動ポリシー
 Restart=always
 RestartSec=3
-
-# 環境の素振り（env で上書きされるためデフォルト値として）
+LimitNOFILE=65535
 Environment=HOME=/home/edunotes
 Environment=NODE_ENV=production
+Environment=PORT=3000
 Environment=APP_PORT=3000
+ExecStartPost=/bin/sleep 3
 
 [Install]
 WantedBy=multi-user.target
