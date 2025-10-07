@@ -33,7 +33,7 @@
 - name: Render app env
   ansible.builtin.template:
     src: "app.env.j2"
-    dest: "/etc/edunotes/app.env"
+    dest: "/etc/edunotes/env"
     owner: root
     group: root
     mode: "0640"
