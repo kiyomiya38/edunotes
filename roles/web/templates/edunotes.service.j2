@@ -21,5 +21,10 @@ Environment=PORT=3000
 Environment=APP_PORT=3000
 ExecStartPost=/bin/sleep 3
 
+StandardOutput=journal
+StandardError=journal
+
+LimitNOFILE=65536
+
 [Install]
 WantedBy=multi-user.target
