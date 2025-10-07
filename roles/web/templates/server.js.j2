@@ -1,12 +1,107 @@
+// server.js.j2
 const express = require("express");
+const multer = require("multer");
+const path = require("path");
+const { saveBuffer, getSignedUrl, remove, selfCheck } = require("./storage");
+
 const app = express();
-
-// まずは最小のヘルスチェックだけ確実に通す
-app.get("/healthz", (req, res) => res.status(200).send("ok"));
-app.get("/readyz", (req, res) => res.status(200).send("ready"));
-app.get("/", (req, res) => res.send("EduNotes up"));
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`EduNotes listening on ${PORT}`);
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: parseInt(process.env.MAX_UPLOAD_BYTES || "10485760", 10) } // 10MB
 });
+
+app.get("/healthz", async (_req, res) => {
+  try {
+    await selfCheck();
+    res.status(200).send("ok");
+  } catch (e) {
+    console.error("healthz error:", e);
+    res.status(500).send("ng");
+  }
+});
+
+app.get("/readyz", (_req, res) => res.status(200).send("ready"));
+
+app.get("/", (_req, res) => {
+  res.type("html").send(`<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <title>EduNotes</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <style>
+    body{font-family:system-ui,Segoe UI,Arial;max-width:680px;margin:40px auto;padding:0 16px}
+    header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
+    form{border:1px solid #ddd;padding:16px;border-radius:10px}
+    .hint{color:#666;font-size:12px}
+    .ok{background:#e6ffed;border:1px solid #b7eb8f;padding:12px;border-radius:8px;margin-top:12px}
+    .err{background:#fff1f0;border:1px solid #ffa39e;padding:12px;border-radius:8px;margin-top:12px}
+    footer{margin-top:40px;color:#888;font-size:12px}
+    code{background:#f6f8fa;padding:2px 4px;border-radius:4px}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>EduNotes</h1>
+    <nav><a href="/healthz">health</a> · <a href="/readyz">ready</a></nav>
+  </header>
+
+  <h2>ファイルをS3へアップロード</h2>
+  <form action="/upload" method="post" enctype="multipart/form-data">
+    <p><input type="file" name="file" required></p>
+    <p>
+      置き場所（任意・S3キーに使われます）:
+      <input type="text" name="prefix" placeholder="notes/" style="width:240px">
+    </p>
+    <p><button type="submit">アップロード</button></p>
+    <p class="hint">最大サイズ: <code>${process.env.MAX_UPLOAD_BYTES || "10485760"}</code> bytes</p>
+  </form>
+
+  <footer>
+    S3_BUCKET=<code>${process.env.S3_BUCKET || "-"}</code> / REGION=<code>${process.env.S3_REGION || "-"}</code>
+  </footer>
+</body>
+</html>`);
+});
+
+app.post("/upload", upload.single("file"), async (req, res) => {
+  try {
+    if (!req.file) throw new Error("no file");
+    const prefix = (req.body.prefix || "").trim();
+    const safePrefix = prefix ? prefix.replace(/^\/+/, "").replace(/\.\./g, "") : "";
+    const key = (safePrefix ? safePrefix.replace(/\/?$/, "/") : "") +
+                `${Date.now()}-${path.basename(req.file.originalname)}`;
+
+    await saveBuffer(key, req.file.buffer, req.file.mimetype || "application/octet-stream");
+    const url = await getSignedUrl(key);
+
+    res.type("html").send(`<!doctype html>
+<html lang="ja"><meta charset="utf-8"><body>
+  <div class="ok">アップロード成功: <code>${key}</code></div>
+  <p><a href="${url}">署名付きURLで開く</a>（一定時間のみ有効）</p>
+  <p><a href="/">← 戻る</a></p>
+</body></html>`);
+  } catch (e) {
+    console.error("upload error:", e);
+    res.status(500).type("html").send(`<!doctype html>
+<html lang="ja"><meta charset="utf-8"><body>
+  <div class="err">アップロードに失敗しました。${(e && e.message) || e}</div>
+  <p><a href="/">← 戻る</a></p>
+</body></html>`);
+  }
+});
+
+// 任意: 署名URLだけ取りたいとき
+app.get("/signed", async (req, res) => {
+  const key = req.query.key;
+  if (!key) return res.status(400).json({ error: "missing key" });
+  try {
+    const url = await getSignedUrl(key);
+    res.json({ key, url });
+  } catch (e) {
+    res.status(500).json({ error: (e && e.message) || String(e) });
+  }
+});
+
+const port = process.env.PORT || 3000;
+app.listen(port, () => console.log(`EduNotes listening on ${port}`));
