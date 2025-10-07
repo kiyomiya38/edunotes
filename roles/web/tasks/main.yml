@@ -245,48 +245,7 @@
   environment:                    # ← 追加（EACCES回避）
     HOME: /home/edunotes
     npm_config_cache: /home/edunotes/.npm
-
-# 4.5) repo 未設定でも /healthz を上げる “保険” の最小アプリ
-- name: Seed minimal app when repo is not provided
-  block:
-    - name: Create minimal server.js
-      copy:
-        dest: /opt/edunotes/server.js
-        owner: edunotes
-        group: edunotes
-        mode: "0644"
-        content: |
-          const express = require("express");
-          const app = express();
-          app.get("/", (req,res)=>res.send("ok"));
-          app.get("/healthz",(req,res)=>res.send("ok"));
-          app.get("/readyz",(req,res)=>res.send("ok"));
-          app.get("/metrics",(req,res)=>res.type("text/plain").send("# HELP dummy 1\n# TYPE dummy counter\ndummy 1\n"));
-          const port = process.env.PORT || 3000;
-          app.listen(port, ()=>console.log("listen", port));
-
-    - name: Init package.json if missing
-      command: npm init -y
-      args:
-        chdir: /opt/edunotes
-        creates: /opt/edunotes/package.json
-      become: true
-      become_user: edunotes
-      environment:
-        HOME: /home/edunotes
-        npm_config_cache: /home/edunotes/.npm
-
-    - name: Install express for minimal app
-      command: npm install express --production
-      args:
-        chdir: /opt/edunotes
-      become: true
-      become_user: edunotes
-      environment:
-        HOME: /home/edunotes
-        npm_config_cache: /home/edunotes/.npm
-  when: app_repo | length == 0
-
+    
 # 5) .env（フェーズ1：ローカル添付・非Redis）
 - name: Render env file
   template:

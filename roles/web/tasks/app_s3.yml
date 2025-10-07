@@ -1,47 +1,48 @@
 - name: Ensure app dir exists
   ansible.builtin.file:
-    path: "{{ app_dir }}"
+    path: /opt/edunotes
     state: directory
     owner: edunotes
     group: edunotes
     mode: "0755"
 
-- name: Deploy package.json
+- name: Deploy package.json (S3-ready)
   ansible.builtin.template:
     src: "package.json.j2"
-    dest: "{{ app_dir }}/package.json"
+    dest: "/opt/edunotes/package.json"
     owner: edunotes
     group: edunotes
     mode: "0644"
 
-- name: Deploy server.js
+- name: Deploy server.js (base app with /metrics, /readyz, S3 upload)
   ansible.builtin.template:
     src: "server.js.j2"
-    dest: "{{ app_dir }}/server.js"
+    dest: "/opt/edunotes/server.js"
     owner: edunotes
     group: edunotes
     mode: "0644"
 
-- name: Deploy storage.js
+- name: Deploy storage.js (S3 backend)
   ansible.builtin.template:
     src: "storage.js.j2"
-    dest: "{{ app_dir }}/storage.js"
+    dest: "/opt/edunotes/storage.js"
     owner: edunotes
     group: edunotes
     mode: "0644"
 
-- name: Render app env
+# 既に /etc/edunotes/env を使っているログだったので、そのまま維持
+- name: Render env file
   ansible.builtin.template:
-    src: "app.env.j2"
+    src: "envfile.j2"
     dest: "/etc/edunotes/env"
     owner: root
     group: root
     mode: "0640"
 
-- name: Install Node dependencies (npm ci)
+- name: Install Node dependencies
   ansible.builtin.command: npm ci
-  args: { chdir: "{{ app_dir }}" }
-  environment: { NODE_ENV: "{{ node_env }}" }
+  args: { chdir: "/opt/edunotes" }
+  environment: { NODE_ENV: "production" }
 
 - name: Restart edunotes service
   ansible.builtin.systemd:
@@ -49,3 +50,22 @@
     state: restarted
     enabled: yes
     daemon_reload: yes
+
+# （お好みで堅牢化）まずポートがLISTENするまで待つ
+- name: Wait for port 3000 to listen
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: 3000
+    delay: 1
+    timeout: 30
+
+# それから /healthz を確認
+- name: Wait for healthz
+  ansible.builtin.uri:
+    url: http://127.0.0.1:3000/healthz
+    method: GET
+    status_code: 200
+  register: _health
+  until: _health.status == 200
+  retries: 10
+  delay: 2
