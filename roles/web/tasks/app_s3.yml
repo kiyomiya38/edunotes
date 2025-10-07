@@ -1,0 +1,51 @@
+- name: Ensure app dir exists
+  ansible.builtin.file:
+    path: "{{ app_dir }}"
+    state: directory
+    owner: edunotes
+    group: edunotes
+    mode: "0755"
+
+- name: Deploy package.json
+  ansible.builtin.template:
+    src: "package.json.j2"
+    dest: "{{ app_dir }}/package.json"
+    owner: edunotes
+    group: edunotes
+    mode: "0644"
+
+- name: Deploy server.js
+  ansible.builtin.template:
+    src: "server.js.j2"
+    dest: "{{ app_dir }}/server.js"
+    owner: edunotes
+    group: edunotes
+    mode: "0644"
+
+- name: Deploy storage.js
+  ansible.builtin.template:
+    src: "storage.js.j2"
+    dest: "{{ app_dir }}/storage.js"
+    owner: edunotes
+    group: edunotes
+    mode: "0644"
+
+- name: Render app env
+  ansible.builtin.template:
+    src: "app.env.j2"
+    dest: "/etc/edunotes/app.env"
+    owner: root
+    group: root
+    mode: "0640"
+
+- name: Install Node dependencies (npm ci)
+  ansible.builtin.command: npm ci
+  args: { chdir: "{{ app_dir }}" }
+  environment: { NODE_ENV: "{{ node_env }}" }
+
+- name: Restart edunotes service
+  ansible.builtin.systemd:
+    name: edunotes
+    state: restarted
+    enabled: yes
+    daemon_reload: yes

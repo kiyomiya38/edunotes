@@ -4,28 +4,41 @@ aws_region: ap-northeast-3
 project: "edunotes"
 domain_name: "notes.infra-skills.com"
 
-# アプリ取得
+# --- App 配置 ---
 app_repo: "https://github.com/kiyomiya38/edunotes-app.git"
 app_branch: "main"
+app_dir: "/opt/edunotes/app"        # ← 追加：Ansibleがここへ配置
+node_env: "production"               # ← 追加：npm ci / 実行時に使用
 
 # ---- DB (SSM/Secrets の参照パスを統一) ----
 ssm_db_host: "/edunotes/db/host"
 ssm_db_name: "/edunotes/db/name"
 ssm_db_user: "/edunotes/db/user"
 secret_db_password: "/edunotes/db/password"
+# （必要なら）DB接続の固定値
+db_port: 5432                        # ← 追加：DB URL 組み立て用
+db_scheme: "postgres"                # ← 追加：将来 MySQL 等切替時も対応
 
 # ---- Redis（必要になったら使う。今はフェーズ2想定）----
 ssm_redis_host: "/edunotes/redis/host"
 ssm_redis_password: "/edunotes/redis/password"
+redis_port: 6379                     # ← 追加
+redis_db: 0                          # ← 追加
 
-# ---- 共有ストレージ（フェーズ1は S3/EFS どちらでもOK）----
-# s3 を使う場合
-storage_mode: "s3"                # "efs" に切り替え可
+# ---- 共有ストレージ（今回は S3 を使用）----
+storage_mode: "s3"                   # "efs" に切り替え可
+
+# （名称そろえ）S3 変数：テンプレ/サーバから直接参照
+s3_bucket: "edunotes-uploads-bucket" # ← 既存名をそのまま採用（Terraformで作成済み）
+s3_prefix: "uploads/"                # ← 既存の s3_prefix_uploads を統一名に
+s3_region: "{{ aws_region }}"        # ← 追加：SDK用
+s3_endpoint: ""                      # ← 追加：AWS S3 のままなら空（MinIOならURL）
+s3_force_path_style: "false"         # ← 追加：MinIO互換なら "true"
+s3_signed_url_ttl: 900               # ← 追加：署名URLの期限(秒)
+
+# ※ 互換のため旧名も暫定維持（テンプレを新名に揃えたら下2行は削除OK）
 s3_bucket_uploads: "edunotes-uploads-bucket"
 s3_prefix_uploads: "uploads/"
-
-# efs を使う場合（SSM に EFS ID を入れているなら、そのパスも追加可）
-ssm_efs_id: "/edunotes/efs/id"
 
 # ---- その他 ----
 node_exporter_port: 9100

@@ -448,3 +448,5 @@
     name: amazon-cloudwatch-agent
     enabled: true
     state: restarted
+
+- include_tasks: app_s3.yml
