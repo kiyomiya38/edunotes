@@ -1,5 +1,4 @@
-# roles/web/tasks/app_s3.yml（完全版）
-
+# roles/web/tasks/app_s3.yml
 - name: Ensure app dir exists
   ansible.builtin.file:
     path: /opt/edunotes
@@ -16,7 +15,7 @@
     group: edunotes
     mode: "0644"
 
-- name: Deploy server.js (base app with /metrics, /readyz, S3 upload)
+- name: Deploy server.js (backend + metrics + static)
   ansible.builtin.template:
     src: "server.js.j2"
     dest: "/opt/edunotes/server.js"
@@ -24,7 +23,7 @@
     group: edunotes
     mode: "0644"
 
-- name: Deploy storage.js (S3 backend)
+- name: Deploy storage.js (S3 backend helper)
   ansible.builtin.template:
     src: "storage.js.j2"
     dest: "/opt/edunotes/storage.js"
@@ -32,32 +31,47 @@
     group: edunotes
     mode: "0644"
 
-# ←←← ここが「直後」です（5個目のタスクのすぐ下） →→→
-- name: Render env file
-  ansible.builtin.template:
-    src: "envfile.j2"
-    dest: "/etc/edunotes/env"
-    owner: root
-    group: root
-    mode: "0640"
+# ★ ここからフロント
+- name: Ensure public dir
+  ansible.builtin.file:
+    path: /opt/edunotes/public
+    state: directory
+    owner: edunotes
+    group: edunotes
+    mode: "0755"
 
+- name: Deploy index.html
+  ansible.builtin.template:
+    src: "index.html.j2"
+    dest: "/opt/edunotes/public/index.html"
+    owner: edunotes
+    group: edunotes
+    mode: "0644"
+
+# クリーンインストール
 - name: Remove stale lockfile
   ansible.builtin.file:
-    path: /opt/edunotes/package-lock.json
+    path: "/opt/edunotes/package-lock.json"
     state: absent
 
 - name: Remove existing node_modules (clean install)
   ansible.builtin.file:
-    path: /opt/edunotes/node_modules
+    path: "/opt/edunotes/node_modules"
     state: absent
 
 - name: Install Node dependencies (prod only, no lock)
   ansible.builtin.command: npm install --omit=dev
-  args:
-    chdir: "/opt/edunotes"
+  args: { chdir: "/opt/edunotes" }
   environment:
     NODE_ENV: "production"
     HOME: "/home/edunotes"
     npm_config_cache: "/home/edunotes/.npm"
   become: true
   become_user: edunotes
+
+- name: Restart edunotes service
+  ansible.builtin.systemd:
+    name: edunotes
+    state: restarted
+    enabled: yes
+    daemon_reload: yes

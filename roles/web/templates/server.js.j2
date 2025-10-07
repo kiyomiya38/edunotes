@@ -1,104 +1,73 @@
+// server.js.j2
 const express = require("express");
 const morgan = require("morgan");
 const multer = require("multer");
-const promClient = require("prom-client");
+const prom = require("prom-client");
+const path = require("path");
 
 const { saveBuffer, getSignedUrl, remove, selfCheck } = require("./storage");
 
-// --- env ---
-const PORT = parseInt(process.env.PORT || "3000", 10);
-const UPLOAD_DIR = process.env.UPLOAD_DIR || "/var/edunotes/uploads";
-
-// --- monitoring ---
-promClient.collectDefaultMetrics();
-const httpReqCounter = new promClient.Counter({
-  name: "http_requests_total",
-  help: "Total number of HTTP requests",
-  labelNames: ["method", "route", "status"],
-});
-
-// --- express ---
+// --- basic app setup ---
 const app = express();
-app.use(express.json());
+const PORT = parseInt(process.env.APP_PORT || "3000", 10);
+
+// logging
 app.use(morgan("combined"));
 
-const upload = multer({ storage: multer.memoryStorage() });
+// static (public フォルダに index.html などを置く)
+app.use(express.static(path.join(__dirname, "public")));
 
-// health
+// metrics
+const collectDefaultMetrics = prom.collectDefaultMetrics;
+collectDefaultMetrics();
+app.get("/metrics", async (_req, res) => {
+  res.set("Content-Type", prom.register.contentType);
+  res.end(await prom.register.metrics());
+});
+
+// health/ready
 app.get("/healthz", (_req, res) => res.status(200).send("ok"));
-
-// readiness: simple S3 self-check
 app.get("/readyz", async (_req, res) => {
   try {
     await selfCheck();
     res.status(200).send("ready");
-  } catch (err) {
-    console.error("readiness failed:", err);
-    res.status(503).send("not ready");
+  } catch (e) {
+    res.status(500).send("not ready");
   }
 });
 
-// metrics
-app.get("/metrics", async (_req, res) => {
+// --- upload API (サーバ側でS3へ保存) ---
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
+
+app.post("/api/upload", upload.single("file"), async (req, res) => {
   try {
-    res.set("Content-Type", promClient.register.contentType);
-    res.end(await promClient.register.metrics());
-  } catch (err) {
-    res.status(500).end(err.message);
+    if (!req.file) return res.status(400).json({ error: "no file" });
+    const objectKey = `uploads/${Date.now()}-${req.file.originalname}`;
+    await saveBuffer(objectKey, req.file.buffer, req.file.mimetype || "application/octet-stream");
+    const url = await getSignedUrl(objectKey, 600); // 10分
+    res.json({ ok: true, key: objectKey, size: req.file.size, url });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ ok: false, error: String(e) });
   }
 });
 
-// upload to S3
-app.post("/upload", upload.single("file"), async (req, res) => {
-  if (!req.file) return res.status(400).json({ error: "file is required" });
+// 署名付きURLでダウンロードさせたい場合の簡易エンドポイント
+app.get("/api/download", async (req, res) => {
   try {
-    const key = `uploads/${Date.now()}-${req.file.originalname}`;
-    await saveBuffer(key, req.file.buffer, req.file.mimetype || "application/octet-stream");
-    res.json({ key });
-  } catch (err) {
-    console.error("upload failed:", err);
-    res.status(500).json({ error: "upload failed" });
+    const key = req.query.key;
+    if (!key) return res.status(400).send("key required");
+    const url = await getSignedUrl(String(key), 300);
+    res.redirect(302, url);
+  } catch (e) {
+    console.error(e);
+    res.status(500).send("error");
   }
 });
 
-// get signed url
-app.get("/files/:key", async (req, res) => {
-  try {
-    const url = await getSignedUrl(req.params.key);
-    res.json({ url });
-  } catch (err) {
-    console.error("presign failed:", err);
-    res.status(500).json({ error: "presign failed" });
-  }
-});
+// フォールバック: public/index.html が無い場合のプレーン表示
+app.get("/", (_req, res) => res.send("EduNotes backend is running."));
 
-// delete
-app.delete("/files/:key", async (req, res) => {
-  try {
-    await remove(req.params.key);
-    res.status(204).end();
-  } catch (err) {
-    console.error("delete failed:", err);
-    res.status(500).json({ error: "delete failed" });
-  }
-});
-
-// root
-app.get("/", (_req, res) => {
-  res.type("text/plain").send("EduNotes backend is running.");
-});
-
-// instrumentation
-app.use((req, res, next) => {
-  const end = res.end;
-  res.end = function (...args) {
-    httpReqCounter.inc({ method: req.method, route: req.route?.path || req.path, status: res.statusCode });
-    end.call(this, ...args);
-  };
-  next();
-});
-
-// start
 app.listen(PORT, () => {
-  console.log(`edunotes listening on ${PORT}`);
+  console.log(`edunotes listening on :${PORT}`);
 });
