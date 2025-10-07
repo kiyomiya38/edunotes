@@ -14,7 +14,7 @@
     group: edunotes
     mode: "0644"
 
-- name: Deploy server.js (with /healthz)
+- name: Deploy server.js (base app with /metrics, /readyz, S3 upload)
   ansible.builtin.template:
     src: "server.js.j2"
     dest: "/opt/edunotes/server.js"
@@ -30,29 +30,33 @@
     group: edunotes
     mode: "0644"
 
-# .env はここで作る（起動前に必ず存在させる）
-- name: Render env file
-  ansible.builtin.template:
-    src: "envfile.j2"
-    dest: "/etc/edunotes/env"
-    owner: root
-    group: root
-    mode: "0640"
+# env は上位タスクで /etc/edunotes/env を作っているのでここでは作らない
 
-# 依存導入：lock があれば ci、無ければ install
-- name: Install Node dependencies (ci if lock, else install)
+# --- ここがポイント: ロックファイル/既存 node_modules を掃除してから通常インストール ---
+- name: Remove stale lockfile
+  ansible.builtin.file:
+    path: /opt/edunotes/package-lock.json
+    state: absent
+
+- name: Remove existing node_modules (clean install)
+  ansible.builtin.file:
+    path: /opt/edunotes/node_modules
+    state: absent
+
+- name: Install Node dependencies (prod only, no lock)
   ansible.builtin.shell: |
     set -euo pipefail
-    cd /opt/edunotes
-    if [ -f package-lock.json ]; then
-      npm ci --omit=dev
-    else
-      npm install --omit=dev
-    fi
+    npm install --omit=dev
   args:
+    chdir: /opt/edunotes
     executable: /bin/bash
   become: true
   become_user: edunotes
   environment:
     HOME: /home/edunotes
     npm_config_cache: /home/edunotes/.npm
+
+# ここでの再起動は行わない（unit 配置→daemon-reload→Start を上位で実施）
+
+# （お好みで）起動前にポートがLISTENするまで待つ処理は不要なので省略
+# ヘルスチェックは上位タスクの /healthz で実施
