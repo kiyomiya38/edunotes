@@ -1,3 +1,5 @@
+# roles/web/tasks/app_s3.yml（完全版）
+
 - name: Ensure app dir exists
   ansible.builtin.file:
     path: /opt/edunotes
@@ -30,9 +32,15 @@
     group: edunotes
     mode: "0644"
 
-# env は上位タスクで /etc/edunotes/env を作っているのでここでは作らない
+# ←←← ここが「直後」です（5個目のタスクのすぐ下） →→→
+- name: Render env file
+  ansible.builtin.template:
+    src: "envfile.j2"
+    dest: "/etc/edunotes/env"
+    owner: root
+    group: root
+    mode: "0640"
 
-# --- ここがポイント: ロックファイル/既存 node_modules を掃除してから通常インストール ---
 - name: Remove stale lockfile
   ansible.builtin.file:
     path: /opt/edunotes/package-lock.json
@@ -44,19 +52,12 @@
     state: absent
 
 - name: Install Node dependencies (prod only, no lock)
-  ansible.builtin.shell: |
-    set -euo pipefail
-    npm install --omit=dev
+  ansible.builtin.command: npm install --omit=dev
   args:
-    chdir: /opt/edunotes
-    executable: /bin/bash
+    chdir: "/opt/edunotes"
+  environment:
+    NODE_ENV: "production"
+    HOME: "/home/edunotes"
+    npm_config_cache: "/home/edunotes/.npm"
   become: true
   become_user: edunotes
-  environment:
-    HOME: /home/edunotes
-    npm_config_cache: /home/edunotes/.npm
-
-# ここでの再起動は行わない（unit 配置→daemon-reload→Start を上位で実施）
-
-# （お好みで）起動前にポートがLISTENするまで待つ処理は不要なので省略
-# ヘルスチェックは上位タスクの /healthz で実施
