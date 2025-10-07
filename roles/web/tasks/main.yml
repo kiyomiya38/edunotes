@@ -285,7 +285,12 @@
   changed_when: false
   notify: Restart nginx
 
-# 7) systemd unit（非root）
+# ★ ここが肝：アプリのファイル配置・依存導入・env 生成を「起動前」に実施
+- name: Deploy edunotes app (S3)
+  import_tasks: app_s3.yml
+  tags: ['app']
+
+# 7) systemd unit
 - name: Render systemd service
   template:
     src: edunotes.service.j2
@@ -302,25 +307,24 @@
     enabled: true
     state: started
 
-# ✅ アプリ起動後にnginxを再ロード
+# ✅ アプリ起動後に nginx を再ロード（vhost 反映）
 - name: Reload nginx to apply new vhost (after app is up)
   command: systemctl reload nginx
   when: nginx_test.rc == 0
   become: true
   tags: reload_nginx
 
-# 8) ヘルスチェック (/healthz が 200 を返すこと)
-- name: Wait for healthz
+# 8) 最終ヘルスチェック（/healthz が 200）
+- name: Wait for healthz (final gate)
   uri:
     url: http://127.0.0.1:3000/healthz
     status_code: 200
-  register: health
+  register: _final_health
   retries: 30
   delay: 3
-  until: health.status == 200
+  until: _final_health.status == 200
 
 # --- CloudWatch Agent (logs + metrics) ---
-
 - name: Ensure dependencies for CloudWatch Agent
   ansible.builtin.package:
     name:
@@ -345,7 +349,7 @@
   ansible.builtin.apt:
     deb: /tmp/amazon-cloudwatch-agent.deb
 
-# 設定ファイルを設置（テンプレを使う）
+# 設定ファイルを設置
 - name: Render CloudWatch Agent config
   ansible.builtin.copy:
     dest: /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
@@ -407,5 +411,3 @@
     name: amazon-cloudwatch-agent
     enabled: true
     state: restarted
-
-- include_tasks: app_s3.yml
