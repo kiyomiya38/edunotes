@@ -38,8 +38,17 @@
         const r = await fetch("/api/upload", { method: "POST", body: fd });
         const j = await r.json();
         if (!j.ok) throw new Error(j.error || "upload failed");
+
+        // 表示は人間可読の元ファイル名（displayName）を優先
+        const name = j.displayName || f.name || "(no name)";
+
+        // 必要なら key も補助表示として残しておく（読みづらい場合はコメントアウト可）
+        const keyLine = j.key ? `\nkey: ${j.key}` : "";
+
         $("#out").innerHTML =
-          `✔ アップロード完了\nkey: ${j.key}\nsize: ${j.size} bytes\n` +
+          `✔ アップロード完了\n` +
+          `ファイル名: ${name}\n` +
+          `size: ${j.size} bytes${keyLine}\n` +
           `リンク: <a href="${j.url}" target="_blank" rel="noreferrer">Signed URL (10分)</a>`;
       } catch (e) {
         $("#out").textContent = "Error: " + e.message;
