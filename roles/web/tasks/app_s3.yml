@@ -70,6 +70,12 @@
   become_user: edunotes
 
 # ── ここから追加（REDIS_URL 自動生成）──────────────────────────
+- name: Ensure default Redis facts (empty)
+  ansible.builtin.set_fact:
+    redis_host: ""
+    redis_pass: ""
+    redis_url: ""
+
 - name: Read Redis host via AWS CLI (from SSM)
   ansible.builtin.command: >
     aws ssm get-parameter
@@ -79,7 +85,7 @@
     --output text
   register: redis_host_cmd
   changed_when: false
-  failed_when: redis_host_cmd.rc != 0   # 必須：ホストは必ず取れる前提
+  failed_when: false
 
 - name: Read Redis password via AWS CLI (optional)
   ansible.builtin.command: >
@@ -93,14 +99,19 @@
   changed_when: false
   failed_when: false                    # パスワード未設定でもOK
 
-- name: Set Redis facts and compose redis_url
+- name: Set Redis facts and compose redis_url (only if present)
   ansible.builtin.set_fact:
-    redis_host: "{{ redis_host_cmd.stdout | trim }}"
-    redis_pass: "{{ (redis_pass_cmd.stdout | default('')) | trim }}"
+    redis_host: "{{ (redis_host_cmd.rc == 0) | ternary((redis_host_cmd.stdout | trim), redis_host) }}"
+    redis_pass: "{{ (redis_pass_cmd.rc == 0) | ternary((redis_pass_cmd.stdout | trim), redis_pass) }}"
     redis_url: >-
-      {{ 'redis://:' ~ (redis_pass|urlencode) ~ '@' ~ (redis_host) ~ ':6379/0'
-         if (redis_pass|length > 0)
-         else 'redis://' ~ (redis_host) ~ ':6379/0' }}
+      {% set _host = (redis_host_cmd.rc == 0) | ternary((redis_host_cmd.stdout | trim), redis_host) %}
+      {% set _pass = (redis_pass_cmd.rc == 0) | ternary((redis_pass_cmd.stdout | trim), redis_pass) %}
+      {% if _host %}
+      {{ ('redis://:' ~ (_pass|urlencode) ~ '@' ~ _host ~ ':6379/0') if (_pass|length > 0)
+         else ('redis://' ~ _host ~ ':6379/0') }}
+      {% else %}
+      {{ redis_url }}
+      {% endif %}
 # ── 追加ここまで ───────────────────────────────────────────────
 
 - name: Render /etc/edunotes/env
