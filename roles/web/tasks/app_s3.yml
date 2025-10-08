@@ -69,6 +69,14 @@
   become: true
   become_user: edunotes
 
+- name: Render /etc/edunotes/env
+  ansible.builtin.template:
+    src: "app.env.j2"
+    dest: "/etc/edunotes/env"
+    owner: root
+    group: root
+    mode: "0644"
+
 - name: Restart edunotes service
   ansible.builtin.systemd:
     name: edunotes

@@ -118,6 +118,25 @@
     - raw_db_pass is string
     - not (raw_db_pass | regex_search('^\\s*{'))
 
+# --- S3: SSM からバケット名を取得（必須） ---
+- name: "Read S3 bucket via AWS CLI"
+  ansible.builtin.command: >
+    aws ssm get-parameter
+    --name /edunotes/s3/bucket
+    --region {{ aws_region }}
+    --query 'Parameter.Value'
+    --output text
+  register: s3_bucket_cli
+  changed_when: false
+  retries: 30
+  delay: 5
+  until: s3_bucket_cli.rc == 0 and (s3_bucket_cli.stdout | length) > 0
+
+- name: "Set S3 facts"
+  ansible.builtin.set_fact:
+    s3_bucket: "{{ s3_bucket_cli.stdout | trim }}"
+    s3_bucket_name: "{{ s3_bucket_cli.stdout | trim }}"
+
 # --- (任意) Redis も SSM から取得したい場合 ---
 - name: "Read Redis host via AWS CLI"
   ansible.builtin.command: >

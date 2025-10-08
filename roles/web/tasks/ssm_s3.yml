@@ -1,0 +1,14 @@
+---
+# S3 バケット名を SSM から取得し、事実としてセット
+
+- name: Read S3 bucket via AWS CLI
+  ansible.builtin.command: >
+    aws ssm get-parameter --name /edunotes/s3/bucket
+    --region {{ aws_region }} --query 'Parameter.Value' --output text
+  register: s3_bucket_cli
+  changed_when: false
+
+- name: Set S3 bucket facts
+  ansible.builtin.set_fact:
+    s3_bucket: "{{ s3_bucket_cli.stdout | trim }}"
+    s3_bucket_name: "{{ s3_bucket_cli.stdout | trim }}"
