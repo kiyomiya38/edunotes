@@ -1,0 +1,107 @@
+const { Router } = require("express");
+const { requireAuth } = require("./auth");
+const { marked } = require("marked");
+const createDOMPurify = require("isomorphic-dompurify");
+const { JSDOM } = require("jsdom");
+const DOMPurify = createDOMPurify(new JSDOM("").window);
+const r = Router();
+
+function sanitizeMD(md){
+  const html = marked.parse(md || "");
+  return DOMPurify.sanitize(html, { ALLOWED_ATTR: ['href','title','alt'], ALLOWED_TAGS: false });
+}
+
+r.get("/notes", requireAuth, async (req,res)=>{
+  const q = (req.query.q || "").trim();
+  let rows;
+  if (q) {
+    rows = (await req.db.query(
+      `select n.*, u.email as author_email
+         from notes n join users u on u.id=n.author_id
+        where n.title ilike $1 or n.body_md ilike $1
+        order by n.created_at desc limit 100`, [`%${q}%`]
+    )).rows;
+  } else {
+    rows = (await req.db.query(
+      `select n.*, u.email as author_email
+         from notes n join users u on u.id=n.author_id
+        order by n.created_at desc limit 100`
+    )).rows;
+  }
+  res.render("notes/index", { user: req.session.user, q, rows, csrfToken: req.csrfToken() });
+});
+
+r.get("/notes/new", requireAuth, (req,res)=> res.render("notes/new", { csrfToken: req.csrfToken(), user: req.session.user }));
+r.post("/notes", requireAuth, async (req,res)=>{
+  const { title, body_md, is_public } = req.body;
+  const body_html = sanitizeMD(body_md);
+  const { rows } = await req.db.query(
+    `insert into notes(author_id,title,body_md,body_html,is_public)
+     values($1,$2,$3,$4,$5) returning id`,
+    [req.session.user.id, title, body_md, body_html, is_public === "on"]
+  );
+  await req.db.query(`insert into audit_logs(user_id,action,detail) values($1,$2,$3)`,
+    [req.session.user.id, "note.create", { title }]);
+  res.redirect(`/notes/${rows[0].id}`);
+});
+
+r.get("/notes/:id", requireAuth, async (req,res)=>{
+  const { rows } = await req.db.query(
+    `select n.*, u.email as author_email from notes n join users u on u.id=n.author_id where n.id=$1`, [req.params.id]
+  );
+  if (!rows[0]) return res.sendStatus(404);
+  const tags = (await req.db.query(
+    `select t.* from note_tags nt join tags t on t.id=nt.tag_id where nt.note_id=$1`, [req.params.id]
+  )).rows;
+  const comments = (await req.db.query(
+    `select c.*, u.email as author_email
+       from comments c join users u on u.id=c.author_id
+      where c.note_id=$1 order by c.created_at asc`, [req.params.id]
+  )).rows;
+  res.render("notes/show", { n: rows[0], tags, comments, csrfToken: req.csrfToken(), user: req.session.user });
+});
+
+r.get("/notes/:id/edit", requireAuth, async (req,res)=>{
+  const { rows } = await req.db.query(`select * from notes where id=$1`, [req.params.id]);
+  if (!rows[0]) return res.sendStatus(404);
+  res.render("notes/edit", { n: rows[0], csrfToken: req.csrfToken(), user: req.session.user });
+});
+r.post("/notes/:id", requireAuth, async (req,res)=>{
+  const { title, body_md, is_public } = req.body;
+  const body_html = sanitizeMD(body_md);
+  await req.db.query(
+    `update notes set title=$2, body_md=$3, body_html=$4, is_public=$5, updated_at=now() where id=$1`,
+    [req.params.id, title, body_md, body_html, is_public === "on"]
+  );
+  await req.db.query(`insert into audit_logs(user_id,action,detail) values($1,$2,$3)`,
+    [req.session.user.id, "note.update", { id: req.params.id }]);
+  res.redirect(`/notes/${req.params.id}`);
+});
+
+// コメント
+r.post("/notes/:id/comments", requireAuth, async (req,res)=>{
+  const body_md = req.body.body_md || "";
+  const body_html = sanitizeMD(body_md);
+  await req.db.query(
+    `insert into comments(note_id,author_id,body_md,body_html) values($1,$2,$3,$4)`,
+    [req.params.id, req.session.user.id, body_md, body_html]
+  );
+  await req.db.query(`insert into audit_logs(user_id,action,detail) values($1,$2,$3)`,
+    [req.session.user.id, "comment.create", { note_id: req.params.id }]);
+  res.redirect(`/notes/${req.params.id}`);
+});
+
+// タグ（新規作成も兼ねる）
+r.post("/notes/:id/tags", requireAuth, async (req,res)=>{
+  const name = (req.body.name || "").trim();
+  if (!name) return res.redirect(`/notes/${req.params.id}`);
+  const t = await req.db.query(
+    `insert into tags(name) values($1) on conflict(name) do update set name=excluded.name returning id`, [name]
+  );
+  await req.db.query(
+    `insert into note_tags(note_id,tag_id) values($1,$2) on conflict do nothing`, [req.params.id, t.rows[0].id]
+  );
+  res.redirect(`/notes/${req.params.id}`);
+});
+
+module.exports = r;

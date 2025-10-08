@@ -1,0 +1,20 @@
+<%- include('../layout', { body: `
+<h2>新規ノート</h2>
+<form method="post" action="/notes">
+  <input type="hidden" name="_csrf" value="${csrfToken}">
+  <label>タイトル
+    <input type="text" name="title" required>
+  </label>
+  <label>本文（Markdown）
+    <textarea name="body_md" rows="12" placeholder="# 見出し
+本文をMarkdownで書いてください"></textarea>
+  </label>
+  <label>
+    <input type="checkbox" name="is_public"> 公開する
+  </label>
+  <div style="display:flex; gap:.5rem;">
+    <button>作成</button>
+    <a href="/notes">戻る</a>
+  </div>
+</form>
+`, user, csrfToken }) %>

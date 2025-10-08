@@ -1,0 +1,23 @@
+<!DOCTYPE html><html lang="ja"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>EduNotes</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.css">
+</head><body>
+<header>
+  <h1><a href="/notes" style="text-decoration:none;">EduNotes</a></h1>
+  <% if (user) { %>
+    <div>
+      <span style="margin-right:8px;">👤 <%= user.email %></span>
+      <form method="post" action="/logout" style="display:inline;">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <button>Logout</button>
+      </form>
+    </div>
+  <% } %>
+</header>
+<main><%- body %></main>
+<footer style="margin-top:48px; font-size:0.9em; opacity:.7;">
+  <hr>
+  <p>© EduNotes</p>
+</footer>
+</body></html>

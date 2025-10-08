@@ -1,0 +1,21 @@
+<%- include('../layout', { body: `
+<h2>ノート一覧</h2>
+
+<form method="get" action="/notes" style="display:flex; gap:.5rem; align-items:center;">
+  <input type="text" name="q" placeholder="タイトル／本文検索" value="${q || ''}" style="flex:1;">
+  <button>検索</button>
+  <a href="/notes/new">＋ 新規ノート</a>
+</form>
+
+${rows && rows.length ? `
+  <ul>
+    ${rows.map(n => `
+      <li>
+        <a href="/notes/${n.id}">${n.title}</a>
+        <small>— by ${n.author_email} / ${new Date(n.created_at).toLocaleString()}</small>
+        ${n.is_public ? '<span style="margin-left:6px;">🌐 公開</span>' : ''}
+      </li>
+    `).join('')}
+  </ul>
+` : `<p>ノートがありません。<a href="/notes/new">作成する</a></p>`}
+`, user, csrfToken }) %>

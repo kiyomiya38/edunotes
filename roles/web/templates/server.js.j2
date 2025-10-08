@@ -4,20 +4,93 @@ const morgan = require("morgan");
 const multer = require("multer");
 const prom = require("prom-client");
 const path = require("path");
+const csrf = require("csurf");
 
+// 既存のS3ヘルパ（そのまま）
 const { saveBuffer, getSignedUrl, remove, selfCheck } = require("./storage");
+
+// 追加: UI/セッション/DB 用の最小依存（既存APIは壊さない）
+const session = require("express-session");
+const RedisStoreFactory = require("connect-redis");
+const IORedis = require("ioredis");
+const { Pool } = require("pg");
 
 // --- basic app setup ---
 const app = express();
-const PORT = parseInt(process.env.APP_PORT || "3000", 10);
+// ★修正: PORTのフォールバックを追加
+const PORT = parseInt(process.env.APP_PORT || process.env.PORT || "3000", 10);
 
 // logging
 app.use(morgan("combined"));
 
-// static (public フォルダに index.html などを置く)
+// body parsers（既存APIとフォーム両対応）
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// static (public フォルダに index.html などを置く) ※既存のまま
 app.use(express.static(path.join(__dirname, "public")));
 
-// metrics
+// ---- view (EJS) 最小有効化：操作画面で使用。public/index.html があればそちらも併用可能
+app.set("view engine", "ejs");
+app.set("views", path.join(process.cwd(), "views")); // /opt/edunotes/views を想定
+
+// ---- Redisセッション（将来の認証/UI用。既存APIには影響なし）
+let redisClient = null;
+let RedisStore = null;
+try {
+  // REDIS_URL 例: redis://:pass@redis.internal:6379/0
+  if (process.env.REDIS_URL) {
+    redisClient = new IORedis(process.env.REDIS_URL);
+    RedisStore = RedisStoreFactory;
+    app.use(
+      session({
+        store: new RedisStore({ client: redisClient }),
+        secret: process.env.SESSION_SECRET || "dev",
+        resave: false,
+        saveUninitialized: false,
+        cookie: { httpOnly: true, sameSite: "lax", secure: false, maxAge: 7 * 24 * 3600 * 1000 },
+      })
+    );
+  }
+} catch (e) {
+  console.warn("[warn] Redis session not enabled:", e?.message || e);
+}
+
+// ★修正: CSRFはセッションが有効なときだけ、かつ /api/*・/metrics・/healthz・/readyz は除外
+if (redisClient) {
+  const csrfMiddleware = csrf();
+  app.use((req, res, next) => {
+    const p = req.path || "";
+    if (
+      p.startsWith("/api/") ||
+      p === "/metrics" ||
+      p === "/healthz" ||
+      p === "/readyz"
+    ) {
+      return next();
+    }
+    return csrfMiddleware(req, res, next);
+  });
+}
+
+// ---- PostgreSQL（UI/ノート機能用。既存APIには影響なし）
+let pgPool = null;
+try {
+  if (process.env.DB_URL) {
+    pgPool = new Pool({ connectionString: process.env.DB_URL });
+  }
+} catch (e) {
+  console.warn("[warn] Postgres not configured:", e?.message || e);
+}
+
+// request共有（ルータから使えるように）
+app.use((req, _res, next) => {
+  req.redis = redisClient;
+  req.db = pgPool;
+  next();
+});
+
+// metrics（既存のまま）
 const collectDefaultMetrics = prom.collectDefaultMetrics;
 collectDefaultMetrics();
 app.get("/metrics", async (_req, res) => {
@@ -25,18 +98,34 @@ app.get("/metrics", async (_req, res) => {
   res.end(await prom.register.metrics());
 });
 
-// health/ready
+// health（既存のまま）
 app.get("/healthz", (_req, res) => res.status(200).send("ok"));
+
+// ready（S3自己診断 + Redis + DB の順で軽く確認。設定が無いものはスキップ）
 app.get("/readyz", async (_req, res) => {
   try {
+    // 既存：S3自己診断（実装済み）
     await selfCheck();
+
+    // Redis が設定されていれば ping
+    if (redisClient) {
+      const pong = await redisClient.ping();
+      if (pong !== "PONG") throw new Error("redis not ready");
+    }
+
+    // DB が設定されていれば簡易クエリ
+    if (pgPool) {
+      await pgPool.query("select 1");
+    }
+
     res.status(200).send("ready");
   } catch (e) {
+    console.error("[readyz] not ready:", e?.message || e);
     res.status(500).send("not ready");
   }
 });
 
-// --- upload API (サーバ側でS3へ保存) ---
+// --- upload API (サーバ側でS3へ保存) ---（既存そのまま）
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
 
 app.post("/api/upload", upload.single("file"), async (req, res) => {
@@ -62,7 +151,7 @@ app.post("/api/upload", upload.single("file"), async (req, res) => {
   }
 });
 
-// 署名付きURLでダウンロードさせたい場合の簡易エンドポイント
+// 署名付きURLでダウンロードさせたい場合の簡易エンドポイント（既存そのまま）
 app.get("/api/download", async (req, res) => {
   try {
     const key = req.query.key;
@@ -75,7 +164,23 @@ app.get("/api/download", async (req, res) => {
   }
 });
 
-// フォールバック: public/index.html が無い場合のプレーン表示
+// ---- 操作画面用ルータを「後付け」マウント（存在すれば使う／無ければスキップ）
+(function mountOptionalRouters() {
+  try {
+    const authRouter = require("./routes/auth");   // 新規追加予定
+    app.use("/", authRouter);
+  } catch (e) {
+    console.warn("[info] routes/auth not found (UI auth disabled)");
+  }
+  try {
+    const notesRouter = require("./routes/notes"); // 新規追加予定
+    app.use("/", notesRouter);
+  } catch (e) {
+    console.warn("[info] routes/notes not found (UI notes disabled)");
+  }
+})();
+
+// フォールバック: public/index.html が無い場合のプレーン表示（既存のまま）
 app.get("/", (_req, res) => res.send("EduNotes backend is running."));
 
 app.listen(PORT, () => {

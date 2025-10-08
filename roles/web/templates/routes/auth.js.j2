@@ -1,0 +1,45 @@
+const { Router } = require("express");
+const bcrypt = require("bcrypt");
+const r = Router();
+
+function requireGuest(req, res, next) {
+  if (req.session.user) return res.redirect("/notes");
+  next();
+}
+function requireAuth(req, res, next) {
+  if (!req.session.user) return res.redirect("/login");
+  next();
+}
+
+r.get("/signup", requireGuest, (req,res)=> res.render("signup", { csrfToken: req.csrfToken(), error: null, user: null }));
+r.post("/signup", requireGuest, async (req,res)=>{
+  const { email, password } = req.body;
+  if (!email || !password) return res.render("signup", { csrfToken: req.csrfToken(), error: "必須項目", user: null });
+  const hashed = await bcrypt.hash(password, 12);
+  try {
+    const { rows } = await req.db.query(
+      "insert into users(email,password_hash,role) values($1,$2,$3) returning id,email,role",
+      [email, hashed, "student"]
+    );
+    req.session.user = rows[0];
+    res.redirect("/notes");
+  } catch (_e) {
+    res.render("signup", { csrfToken: req.csrfToken(), error: "登録失敗（重複？）", user: null });
+  }
+});
+
+r.get("/login", requireGuest, (req,res)=> res.render("login", { csrfToken: req.csrfToken(), error: null, user: null }));
+r.post("/login", requireGuest, async (req,res)=>{
+  const { email, password } = req.body;
+  const { rows } = await req.db.query("select * from users where email=$1", [email]);
+  if (!rows[0]) return res.render("login", { csrfToken: req.csrfToken(), error: "認証失敗", user: null });
+  const ok = await bcrypt.compare(password, rows[0].password_hash);
+  if (!ok) return res.render("login", { csrfToken: req.csrfToken(), error: "認証失敗", user: null });
+  req.session.user = { id: rows[0].id, email: rows[0].email, role: rows[0].role };
+  res.redirect("/notes");
+});
+
+r.post("/logout", (req,res)=> req.session.destroy(()=> res.redirect("/login")));
+
+module.exports = r;
+module.exports.requireAuth = requireAuth;

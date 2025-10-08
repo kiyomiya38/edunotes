@@ -1,0 +1,11 @@
+<%- include('layout', { body: `
+<h2>新規登録</h2>
+${error ? `<p style="color:red">${error}</p>` : '' }
+<form method="post" action="/signup">
+  <input type="hidden" name="_csrf" value="${csrfToken}">
+  <label>Email <input name="email" type="email" required></label>
+  <label>Password <input name="password" type="password" required minlength="6"></label>
+  <button>登録する</button>
+</form>
+<p><a href="/login">ログインに戻る</a></p>
+`, user, csrfToken }) %>

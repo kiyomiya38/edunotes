@@ -1,0 +1,60 @@
+<%- include('../layout', { body: `
+<a href="/notes">← 一覧へ戻る</a>
+<h2 style="margin-bottom:0.2rem;">${n.title}</h2>
+<p style="margin-top:0; opacity:.8;">
+  by ${n.author_email}
+  ／ 作成: ${new Date(n.created_at).toLocaleString()}
+  ／ 更新: ${new Date(n.updated_at).toLocaleString()}
+  ${n.is_public ? ' ／ 🌐 公開' : ''}
+</p>
+
+<section>
+  <h3>本文</h3>
+  <article style="border:1px solid #ddd; padding:1rem; border-radius:.5rem;">
+    <%- n.body_html %>
+  </article>
+</section>
+
+<section>
+  <h3>タグ</h3>
+  ${tags && tags.length ? `
+    <p>${tags.map(t => `<span style="display:inline-block; padding:.1rem .5rem; border:1px solid #ccc; border-radius:999px; margin:.1rem;">#${t.name}</span>`).join(' ')}</p>
+  ` : `<p>（タグなし）</p>`}
+
+  <form method="post" action="/notes/${n.id}/tags" style="display:flex; gap:.5rem; align-items:center;">
+    <input type="hidden" name="_csrf" value="${csrfToken}">
+    <input name="name" placeholder="タグ名を入力">
+    <button>追加</button>
+  </form>
+</section>
+
+<section>
+  <h3>コメント</h3>
+  ${comments && comments.length ? `
+    <ul>
+      ${comments.map(c => `
+        <li>
+          <div style="opacity:.8; font-size:.95em;">
+            ${c.author_email} ／ ${new Date(c.created_at).toLocaleString()}
+          </div>
+          <div style="border-left:3px solid #ddd; padding-left:.75rem; margin:.25rem 0 1rem;">
+            <div><%- c.body_html %></div>
+          </div>
+        </li>
+      `).join('')}
+    </ul>
+  ` : `<p>まだコメントはありません。</p>`}
+
+  <form method="post" action="/notes/${n.id}/comments">
+    <input type="hidden" name="_csrf" value="${csrfToken}">
+    <label>コメント（Markdown）
+      <textarea name="body_md" rows="6" placeholder="コメントをMarkdownで入力"></textarea>
+    </label>
+    <button>コメント投稿</button>
+  </form>
+</section>
+
+<p style="margin-top:1.5rem;">
+  <a href="/notes/${n.id}/edit">✏️ 編集</a>
+</p>
+`, user, csrfToken }) %>

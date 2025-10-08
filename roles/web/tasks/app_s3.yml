@@ -83,3 +83,61 @@
     state: restarted
     enabled: yes
     daemon_reload: yes
+
+- name: Ensure app subdirs for views and routes
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: edunotes
+    group: edunotes
+    mode: "0755"
+  loop:
+    - /opt/edunotes/views
+    - /opt/edunotes/views/notes
+    - /opt/edunotes/routes
+
+- name: Deploy EJS views
+  ansible.builtin.template:
+    src: "views/{{ item.src }}"
+    dest: "/opt/edunotes/views/{{ item.dest }}"
+    owner: edunotes
+    group: edunotes
+    mode: "0644"
+  loop:
+    - { src: "layout.ejs.j2",         dest: "layout.ejs" }
+    - { src: "login.ejs.j2",          dest: "login.ejs" }
+    - { src: "signup.ejs.j2",         dest: "signup.ejs" }
+    - { src: "notes/index.ejs.j2",    dest: "notes/index.ejs" }
+    - { src: "notes/new.ejs.j2",      dest: "notes/new.ejs" }
+    - { src: "notes/show.ejs.j2",     dest: "notes/show.ejs" }
+    - { src: "notes/edit.ejs.j2",     dest: "notes/edit.ejs" }
+
+- name: Deploy routes
+  ansible.builtin.template:
+    src: "routes/{{ item }}.j2"
+    dest: "/opt/edunotes/routes/{{ item }}"
+    owner: edunotes
+    group: edunotes
+    mode: "0644"
+  loop:
+    - auth.js
+    - notes.js
+
+- name: Deploy DB schema
+  ansible.builtin.template:
+    src: "schema.sql.j2"
+    dest: "/opt/edunotes/schema.sql"
+    owner: edunotes
+    group: edunotes
+    mode: "0644"
+
+- name: Apply DB schema (idempotent)
+  ansible.builtin.shell: |
+    set -e
+    export PGPASSWORD="$(echo '{{ lookup("env", "PGPASSWORD") }}')"
+    psql "{{ lookup('env','DB_URL') or lookup('vars','db_url') or 'postgres://edunotes:edupass@db.internal:5432/edunotes' }}" -f /opt/edunotes/schema.sql
+  args:
+    executable: /bin/bash
+  register: schema_apply
+  changed_when: schema_apply.rc == 0
+  failed_when: schema_apply.rc != 0

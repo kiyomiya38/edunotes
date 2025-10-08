@@ -1,0 +1,20 @@
+<%- include('../layout', { body: `
+<a href="/notes/${n.id}">← ノートに戻る</a>
+<h2>ノート編集</h2>
+<form method="post" action="/notes/${n.id}">
+  <input type="hidden" name="_csrf" value="${csrfToken}">
+  <label>タイトル
+    <input type="text" name="title" value="${n.title.replace(/"/g,'&quot;')}" required>
+  </label>
+  <label>本文（Markdown）
+    <textarea name="body_md" rows="12">${(n.body_md || '').replace(/</g,'&lt;')}</textarea>
+  </label>
+  <label>
+    <input type="checkbox" name="is_public" ${n.is_public ? 'checked' : ''}> 公開する
+  </label>
+  <div style="display:flex; gap:.5rem;">
+    <button>更新</button>
+    <a href="/notes/${n.id}">キャンセル</a>
+  </div>
+</form>
+`, user, csrfToken }) %>
