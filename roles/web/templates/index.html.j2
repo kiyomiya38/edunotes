@@ -39,16 +39,16 @@
         const j = await r.json();
         if (!j.ok) throw new Error(j.error || "upload failed");
 
-        // 表示は人間可読の元ファイル名（displayName）を優先
+        // 表示は displayName を優先
         const name = j.displayName || f.name || "(no name)";
 
-        // 必要なら key も補助表示として残しておく（読みづらい場合はコメントアウト可）
-        const keyLine = j.key ? `\nkey: ${j.key}` : "";
+        // key は保持しても画面には出さない（内部で使う場合のみ）
+        console.log("S3 key:", j.key);
 
         $("#out").innerHTML =
           `✔ アップロード完了\n` +
           `ファイル名: ${name}\n` +
-          `size: ${j.size} bytes${keyLine}\n` +
+          `size: ${j.size} bytes\n` +
           `リンク: <a href="${j.url}" target="_blank" rel="noreferrer">Signed URL (10分)</a>`;
       } catch (e) {
         $("#out").textContent = "Error: " + e.message;
