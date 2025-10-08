@@ -43,24 +43,23 @@ app.post("/api/upload", upload.single("file"), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: "no file" });
 
-    // 日本語・スペース・特殊文字をURL安全に変換
-    const origName = req.file.originalname || "unnamed";
-    const normalized = origName.normalize("NFC");
-    const safeName = encodeURIComponent(normalized);
+    // ★重要：multer が latin1 扱いした文字列を UTF-8 に復元
+    //  例: "ãƒ•ã‚§ãƒ¼ã‚º..." -> Buffer(latin1) -> .toString('utf8') で日本語に戻る
+    const raw = req.file.originalname || "unnamed";
+    const utf8Name = Buffer.from(raw, "latin1").toString("utf8");
+
+    // 人が読む用（画面表示用）
+    const displayName = utf8Name.normalize("NFC");
+
+    // S3 キー用（URL安全に）
+    const safeName = encodeURIComponent(displayName);
     const objectKey = `uploads/${Date.now()}-${safeName}`;
 
     await saveBuffer(objectKey, req.file.buffer, req.file.mimetype || "application/octet-stream");
     const url = await getSignedUrl(objectKey, 600); // 10分
 
-    // UTF-8 で元ファイル名も返す（ブラウザ表示用）
     res.set("Content-Type", "application/json; charset=utf-8");
-    res.json({
-      ok: true,
-      key: objectKey,          // S3キー（内部用）
-      displayName: normalized, // 表示用（日本語）
-      size: req.file.size,
-      url
-    });
+    res.json({ ok: true, key: objectKey, displayName, size: req.file.size, url });
   } catch (e) {
     console.error(e);
     res.status(500).json({ ok: false, error: String(e) });
