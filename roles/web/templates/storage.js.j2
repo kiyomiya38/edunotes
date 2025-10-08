@@ -1,3 +1,4 @@
+// storage.js.j2
 const { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } = require("@aws-sdk/client-s3");
 const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
 
@@ -9,26 +10,59 @@ const SIGN_TTL = parseInt(process.env.S3_SIGNED_URL_TTL || "900", 10);
 
 if (!BUCKET) throw new Error("S3_BUCKET is required");
 
+// S3クライアント生成
 const s3 = new S3Client({ region: REGION, endpoint: ENDPOINT, forcePathStyle: FORCE });
 
-async function saveBuffer(objectKey, buffer, contentType = "application/octet-stream") {
-  await s3.send(new PutObjectCommand({ Bucket: BUCKET, Key: objectKey, Body: buffer, ContentType: contentType }));
+// ★補助関数：Content-Disposition (UTF-8対応)
+function buildContentDisposition(nameUtf8) {
+  // UTF-8の日本語ファイル名を安全に指定
+  const enc = encodeURIComponent(nameUtf8);
+  return `attachment; filename*=UTF-8''${enc}`;
+}
+
+// --- S3へバッファを保存 ---
+async function saveBuffer(objectKey, buffer, contentType = "application/octet-stream", displayName) {
+  // ★重要：Keyをencodeしない。UTF-8のまま保存する。
+  const params = {
+    Bucket: BUCKET,
+    Key: objectKey,
+    Body: buffer,
+    ContentType: contentType,
+  };
+
+  // ダウンロード時に名前を維持したい場合はContentDispositionを付与
+  if (displayName) {
+    params.ContentDisposition = buildContentDisposition(displayName);
+  }
+
+  await s3.send(new PutObjectCommand(params));
   return { objectKey, size: buffer.length };
 }
 
-async function getSignedUrlForGet(objectKey, ttlSeconds = SIGN_TTL) {
-  const cmd = new GetObjectCommand({ Bucket: BUCKET, Key: objectKey });
+// --- GET用署名付きURLを生成 ---
+async function getSignedUrlForGet(objectKey, ttlSeconds = SIGN_TTL, displayName) {
+  // ★KeyはencodeせずUTF-8のまま渡す（SDKが内部で適切にエンコードする）
+  const params = { Bucket: BUCKET, Key: objectKey };
+
+  // ダウンロード時に日本語ファイル名で保存したい場合
+  if (displayName) {
+    params.ResponseContentDisposition = buildContentDisposition(displayName);
+  }
+
+  const cmd = new GetObjectCommand(params);
   return getSignedUrl(s3, cmd, { expiresIn: ttlSeconds });
 }
 
+// --- オブジェクト削除 ---
 async function remove(objectKey) {
   await s3.send(new DeleteObjectCommand({ Bucket: BUCKET, Key: objectKey }));
 }
 
+// --- S3との接続確認 ---
 async function selfCheck() {
-  const k = `.check-${Date.now()}`;
-  await saveBuffer(k, Buffer.from("ok"), "text/plain");
-  await remove(k);
+  const key = `.check-${Date.now()}`;
+  await saveBuffer(key, Buffer.from("ok", "utf8"), "text/plain; charset=utf-8", "check.txt");
+  await remove(key);
 }
 
 module.exports = { saveBuffer, getSignedUrl: getSignedUrlForGet, remove, selfCheck };
