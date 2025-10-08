@@ -2,44 +2,93 @@ const { Router } = require("express");
 const bcrypt = require("bcrypt");
 const r = Router();
 
+// ---- helpers -------------------------------------------------
+const getUser = (req) => req.session?.user || null;
+const getCsrf = (req) => {
+  if (typeof req.csrfToken === "function") {
+    try { return req.csrfToken(); } catch (_) { /* ignore */ }
+  }
+  return null;
+};
+
+// ---- guards ---------------------------------------------------
 function requireGuest(req, res, next) {
-  if (req.session.user) return res.redirect("/notes");
-  next();
-}
-function requireAuth(req, res, next) {
-  if (!req.session.user) return res.redirect("/login");
-  next();
+  const user = getUser(req);
+  if (user) return res.redirect("/notes");
+  return next();
 }
 
-r.get("/signup", requireGuest, (req,res)=> res.render("signup", { csrfToken: req.csrfToken(), error: null, user: null }));
-r.post("/signup", requireGuest, async (req,res)=>{
-  const { email, password } = req.body;
-  if (!email || !password) return res.render("signup", { csrfToken: req.csrfToken(), error: "必須項目", user: null });
-  const hashed = await bcrypt.hash(password, 12);
+function requireAuth(req, res, next) {
+  const user = getUser(req);
+  if (!user) return res.redirect("/login");
+  res.locals.currentUser = user;
+  return next();
+}
+
+// ---- routes: signup -------------------------------------------
+r.get("/signup", requireGuest, (req, res) =>
+  res.render("signup", { csrfToken: getCsrf(req), error: null, user: null })
+);
+
+r.post("/signup", requireGuest, async (req, res) => {
+  const { email, password } = req.body || {};
+  if (!email || !password) {
+    return res.render("signup", { csrfToken: getCsrf(req), error: "必須項目", user: null });
+  }
+
   try {
-    const { rows } = await req.db.query(
+    const hashed = await bcrypt.hash(password, 12);
+    const db = req.db;
+    if (!db) {
+      return res.status(500).render("signup", { csrfToken: getCsrf(req), error: "DB未接続", user: null });
+    }
+
+    const { rows } = await db.query(
       "insert into users(email,password_hash,role) values($1,$2,$3) returning id,email,role",
       [email, hashed, "student"]
     );
+
     req.session.user = rows[0];
-    res.redirect("/notes");
+    return res.redirect("/notes");
   } catch (_e) {
-    res.render("signup", { csrfToken: req.csrfToken(), error: "登録失敗（重複？）", user: null });
+    return res.render("signup", { csrfToken: getCsrf(req), error: "登録失敗（重複？）", user: null });
   }
 });
 
-r.get("/login", requireGuest, (req,res)=> res.render("login", { csrfToken: req.csrfToken(), error: null, user: null }));
-r.post("/login", requireGuest, async (req,res)=>{
-  const { email, password } = req.body;
-  const { rows } = await req.db.query("select * from users where email=$1", [email]);
-  if (!rows[0]) return res.render("login", { csrfToken: req.csrfToken(), error: "認証失敗", user: null });
+// ---- routes: login --------------------------------------------
+r.get("/login", requireGuest, (req, res) =>
+  res.render("login", { csrfToken: getCsrf(req), error: null, user: null })
+);
+
+r.post("/login", requireGuest, async (req, res) => {
+  const { email, password } = req.body || {};
+  const db = req.db;
+  if (!db) {
+    return res.status(500).render("login", { csrfToken: getCsrf(req), error: "DB未接続", user: null });
+  }
+
+  const { rows } = await db.query("select * from users where email=$1", [email]);
+  if (!rows[0]) {
+    return res.render("login", { csrfToken: getCsrf(req), error: "認証失敗", user: null });
+  }
+
   const ok = await bcrypt.compare(password, rows[0].password_hash);
-  if (!ok) return res.render("login", { csrfToken: req.csrfToken(), error: "認証失敗", user: null });
+  if (!ok) {
+    return res.render("login", { csrfToken: getCsrf(req), error: "認証失敗", user: null });
+  }
+
   req.session.user = { id: rows[0].id, email: rows[0].email, role: rows[0].role };
-  res.redirect("/notes");
+  return res.redirect("/notes");
 });
 
-r.post("/logout", (req,res)=> req.session.destroy(()=> res.redirect("/login")));
+// ---- routes: logout -------------------------------------------
+r.post("/logout", (req, res) => {
+  if (req.session) {
+    req.session.destroy(() => res.redirect("/login"));
+  } else {
+    res.redirect("/login");
+  }
+});
 
 module.exports = r;
 module.exports.requireAuth = requireAuth;
