@@ -295,11 +295,6 @@
   changed_when: false
   notify: Restart nginx
 
-# ★ ここが肝：アプリのファイル配置・依存導入・env 生成を「起動前」に実施
-- name: Deploy edunotes app (S3)
-  import_tasks: app_s3.yml
-  tags: ['app']
-
 # 7) systemd unit
 - name: Render systemd service
   template:
@@ -310,6 +305,11 @@
 - name: daemon-reload
   systemd:
     daemon_reload: true
+
+# ★ ここが肝：アプリのファイル配置・依存導入・env 生成を「起動前」に実施
+- name: Deploy edunotes app (S3)
+  import_tasks: app_s3.yml
+  tags: ['app']
 
 - name: Start & enable app
   systemd:
