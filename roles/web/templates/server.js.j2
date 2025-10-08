@@ -11,13 +11,13 @@ const { saveBuffer, getSignedUrl, remove, selfCheck } = require("./storage");
 
 // 追加: UI/セッション/DB 用の最小依存（既存APIは壊さない）
 const session = require("express-session");
-const RedisStoreFactory = require("connect-redis");
+const RedisStore = require("connect-redis").default; // ★v7系は .default
 const IORedis = require("ioredis");
 const { Pool } = require("pg");
 
 // --- basic app setup ---
 const app = express();
-// ★修正: PORTのフォールバックを追加
+// ★PORTのフォールバックを追加（APP_PORT or PORT）
 const PORT = parseInt(process.env.APP_PORT || process.env.PORT || "3000", 10);
 
 // logging
@@ -36,28 +36,29 @@ app.set("views", path.join(process.cwd(), "views")); // /opt/edunotes/views を�
 
 // ---- Redisセッション（将来の認証/UI用。既存APIには影響なし）
 let redisClient = null;
-let RedisStore = null;
+let sessionEnabled = false;
 try {
-  // REDIS_URL 例: redis://:pass@redis.internal:6379/0
+  // REDIS_URL 例: redis://:pass@<redis-endpoint>:6379/0
   if (process.env.REDIS_URL) {
-    redisClient = new IORedis(process.env.REDIS_URL);
-    RedisStore = RedisStoreFactory;
+    const client = new IORedis(process.env.REDIS_URL);
     app.use(
       session({
-        store: new RedisStore({ client: redisClient }),
+        store: new RedisStore({ client }),
         secret: process.env.SESSION_SECRET || "dev",
         resave: false,
         saveUninitialized: false,
         cookie: { httpOnly: true, sameSite: "lax", secure: false, maxAge: 7 * 24 * 3600 * 1000 },
       })
     );
+    redisClient = client;
+    sessionEnabled = true;
   }
 } catch (e) {
   console.warn("[warn] Redis session not enabled:", e?.message || e);
 }
 
-// ★修正: CSRFはセッションが有効なときだけ、かつ /api/*・/metrics・/healthz・/readyz は除外
-if (redisClient) {
+// ★CSRFは「セッションが有効なときだけ」、かつ /api/*・/metrics・/healthz・/readyz・/favicon.ico は除外
+if (sessionEnabled) {
   const csrfMiddleware = csrf();
   app.use((req, res, next) => {
     const p = req.path || "";
@@ -65,7 +66,8 @@ if (redisClient) {
       p.startsWith("/api/") ||
       p === "/metrics" ||
       p === "/healthz" ||
-      p === "/readyz"
+      p === "/readyz" ||
+      p === "/favicon.ico"
     ) {
       return next();
     }
