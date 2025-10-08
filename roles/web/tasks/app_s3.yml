@@ -131,13 +131,21 @@
     group: edunotes
     mode: "0644"
 
+- name: Compose db_url fact from parts
+  ansible.builtin.set_fact:
+    db_url: >-
+      postgres://{{ db_user }}:{{ db_password }}@{{ db_host }}:5432/{{ db_name }}
+  when:
+    - db_host is defined
+    - db_user is defined
+    - db_password is defined
+    - db_name is defined
+
 - name: Apply DB schema (idempotent)
   ansible.builtin.shell: |
     set -e
-    export PGPASSWORD="$(echo '{{ lookup("env", "PGPASSWORD") }}')"
-    psql "{{ lookup('env','DB_URL') or lookup('vars','db_url') or 'postgres://edunotes:edupass@db.internal:5432/edunotes' }}" -f /opt/edunotes/schema.sql
+    psql "{{ db_url }}" -f /opt/edunotes/schema.sql
   args:
     executable: /bin/bash
-  register: schema_apply
-  changed_when: schema_apply.rc == 0
-  failed_when: schema_apply.rc != 0
+  when: db_url is defined
+  changed_when: false
