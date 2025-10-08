@@ -43,7 +43,7 @@ app.post("/api/upload", upload.single("file"), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: "no file" });
 
-    // ★修正: 日本語/スペース/記号をURL安全に（NFC正規化 → URLエンコード）
+    // 日本語・スペース・特殊文字をURL安全に変換
     const origName = req.file.originalname || "unnamed";
     const normalized = origName.normalize("NFC");
     const safeName = encodeURIComponent(normalized);
@@ -52,9 +52,15 @@ app.post("/api/upload", upload.single("file"), async (req, res) => {
     await saveBuffer(objectKey, req.file.buffer, req.file.mimetype || "application/octet-stream");
     const url = await getSignedUrl(objectKey, 600); // 10分
 
-    // ★修正: UTF-8 ヘッダ＆元名も返す（表示用）
+    // UTF-8 で元ファイル名も返す（ブラウザ表示用）
     res.set("Content-Type", "application/json; charset=utf-8");
-    res.json({ ok: true, key: objectKey, name: normalized, size: req.file.size, url });
+    res.json({
+      ok: true,
+      key: objectKey,          // S3キー（内部用）
+      displayName: normalized, // 表示用（日本語）
+      size: req.file.size,
+      url
+    });
   } catch (e) {
     console.error(e);
     res.status(500).json({ ok: false, error: String(e) });
