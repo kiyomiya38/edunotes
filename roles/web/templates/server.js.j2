@@ -13,6 +13,7 @@ const { saveBuffer, getSignedUrl, remove, selfCheck } = require("./storage");
 const session = require("express-session");
 const RedisStore = require("connect-redis").default; // ★v7系は .default
 const IORedis = require("ioredis");
+const fs = require("fs");                 // ★ 追加（TLS CA 読み込み用）
 const { Pool } = require("pg");
 
 // --- basic app setup ---
@@ -79,7 +80,25 @@ if (sessionEnabled) {
 let pgPool = null;
 try {
   if (process.env.DB_URL) {
-    pgPool = new Pool({ connectionString: process.env.DB_URL });
+    // ★ 追加: 環境変数から TLS を判定して CA を読み込み
+    const mode = (process.env.PGSSLMODE || "").toLowerCase();
+    let ssl = false;
+    if (mode && mode !== "disable") {
+      const caPath = process.env.PGSSLROOTCERT || "/etc/ssl/certs/rds-global-bundle.pem";
+      try {
+        const ca = fs.readFileSync(caPath, "utf8");
+        ssl = {
+          ca,
+          // verify-full のときだけ厳密検証。no-verify 等は拒否を緩める
+          rejectUnauthorized: mode === "verify-full",
+        };
+      } catch (e) {
+        console.warn("[warn] could not read PGSSLROOTCERT:", e?.message || e);
+        // CA が読めなかった場合でも mode に応じて動くように（最小干渉）
+        ssl = { rejectUnauthorized: mode === "verify-full" };
+      }
+    }
+    pgPool = new Pool({ connectionString: process.env.DB_URL, ssl });
   }
 } catch (e) {
   console.warn("[warn] Postgres not configured:", e?.message || e);
