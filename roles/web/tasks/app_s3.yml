@@ -80,11 +80,12 @@
     --output text
   register: redis_url_cmd
   changed_when: false
-  failed_when: redis_url_cmd.rc != 0
+  failed_when: false    # ← 無ければ失敗させない（重要）
 
-- name: Set redis_url fact
+- name: Override redis_url only when SSM param exists
   ansible.builtin.set_fact:
     redis_url: "{{ redis_url_cmd.stdout | trim }}"
+  when: redis_url_cmd.rc == 0 and (redis_url_cmd.stdout | trim) != ''
 # ── ここまで ───────────────────────────────────────────
 
 - name: Render /etc/edunotes/env
