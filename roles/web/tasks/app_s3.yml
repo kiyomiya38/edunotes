@@ -69,50 +69,23 @@
   become: true
   become_user: edunotes
 
-# ── ここから追加（REDIS_URL 自動生成）──────────────────────────
-- name: Ensure default Redis facts (empty)
-  ansible.builtin.set_fact:
-    redis_host: ""
-    redis_pass: ""
-    redis_url: ""
-
-- name: Read Redis host via AWS CLI (from SSM)
+# ── ここから（SSMの /edunotes/redis/url を直接読む）──
+- name: Read Redis URL via AWS CLI (from SSM)
   ansible.builtin.command: >
     aws ssm get-parameter
-    --name "/edunotes/redis/host"
-    --region {{ aws_region }}
-    --query 'Parameter.Value'
-    --output text
-  register: redis_host_cmd
-  changed_when: false
-  failed_when: false
-
-- name: Read Redis password via AWS CLI (optional)
-  ansible.builtin.command: >
-    aws ssm get-parameter
-    --name "/edunotes/redis/password"
+    --name "/edunotes/redis/url"
     --with-decryption
     --region {{ aws_region }}
     --query 'Parameter.Value'
     --output text
-  register: redis_pass_cmd
+  register: redis_url_cmd
   changed_when: false
-  failed_when: false                    # パスワード未設定でもOK
+  failed_when: redis_url_cmd.rc != 0
 
-- name: Set Redis facts and compose redis_url (only if present)
+- name: Set redis_url fact
   ansible.builtin.set_fact:
-    redis_host: "{{ (redis_host_cmd.rc == 0) | ternary((redis_host_cmd.stdout | trim), redis_host) }}"
-    redis_pass: "{{ (redis_pass_cmd.rc == 0) | ternary((redis_pass_cmd.stdout | trim), redis_pass) }}"
-    redis_url: >-
-      {% set _host = (redis_host_cmd.rc == 0) | ternary((redis_host_cmd.stdout | trim), redis_host) %}
-      {% set _pass = (redis_pass_cmd.rc == 0) | ternary((redis_pass_cmd.stdout | trim), redis_pass) %}
-      {% if _host %}
-      {{ ('redis://:' ~ (_pass|urlencode) ~ '@' ~ _host ~ ':6379/0') if (_pass|length > 0)
-         else ('redis://' ~ _host ~ ':6379/0') }}
-      {% else %}
-      {{ redis_url }}
-      {% endif %}
-# ── 追加ここまで ───────────────────────────────────────────────
+    redis_url: "{{ redis_url_cmd.stdout | trim }}"
+# ── ここまで ───────────────────────────────────────────
 
 - name: Render /etc/edunotes/env
   ansible.builtin.template:
@@ -121,13 +94,6 @@
     owner: root
     group: root
     mode: "0644"
-
-- name: Restart edunotes service
-  ansible.builtin.systemd:
-    name: edunotes
-    state: restarted
-    enabled: yes
-    daemon_reload: yes
 
 - name: Ensure app subdirs for views and routes
   ansible.builtin.file:
@@ -176,10 +142,10 @@
     group: edunotes
     mode: "0644"
 
-- name: Compose db_url fact from parts
+- name: Compose db_url fact from parts (URL-encode password)
   ansible.builtin.set_fact:
     db_url: >-
-      postgres://{{ db_user }}:{{ db_password }}@{{ db_host }}:5432/{{ db_name }}
+      postgres://{{ db_user }}:{{ db_password | urlencode }}@{{ db_host }}:5432/{{ db_name }}
   when:
     - db_host is defined
     - db_user is defined
@@ -194,3 +160,11 @@
     executable: /bin/bash
   when: db_url is defined
   changed_when: false
+
+# （※ 再起動は最後にまとめる：ここが唯一の位置変更）
+- name: Restart edunotes service (after all files are in place)
+  ansible.builtin.systemd:
+    name: edunotes
+    state: restarted
+    enabled: yes
+    daemon_reload: yes
