@@ -96,6 +96,22 @@
     group: root
     mode: "0644"
 
+# ==== 追加（必要最小限）: RDS SSL用CA と psql クライアント ====
+- name: Ensure RDS global CA bundle exists (for verify-full)
+  ansible.builtin.get_url:
+    url: "https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem"
+    dest: "/etc/ssl/certs/rds-global-bundle.pem"
+    mode: "0644"
+  # verify-full を想定。別の sslmode のときでも置いておいて無害
+  changed_when: false
+  failed_when: false
+
+- name: Ensure postgresql client is present (for schema apply)
+  ansible.builtin.package:
+    name: postgresql-client
+    state: present
+# =====================================================
+
 - name: Ensure app subdirs for views and routes
   ansible.builtin.file:
     path: "{{ item }}"
@@ -159,6 +175,9 @@
     psql "{{ db_url }}" -f /opt/edunotes/schema.sql
   args:
     executable: /bin/bash
+  environment:
+    PGSSLMODE: "{{ pg_sslmode | default('verify-full') }}"
+    PGSSLROOTCERT: "{{ pg_sslrootcert | default('/etc/ssl/certs/rds-global-bundle.pem') }}"
   when: db_url is defined
   changed_when: false
 
