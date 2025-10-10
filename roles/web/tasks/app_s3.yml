@@ -80,7 +80,7 @@
     --output text
   register: redis_url_cmd
   changed_when: false
-  failed_when: false    # ← 無ければ失敗させない（重要）
+  failed_when: false    # 失敗させない（重要）
 
 - name: Override redis_url only when SSM param exists
   ansible.builtin.set_fact:
@@ -95,22 +95,6 @@
     owner: root
     group: root
     mode: "0644"
-
-# ==== 追加（必要最小限）: RDS SSL用CA と psql クライアント ====
-- name: Ensure RDS global CA bundle exists (for verify-full)
-  ansible.builtin.get_url:
-    url: "https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem"
-    dest: "/etc/ssl/certs/rds-global-bundle.pem"
-    mode: "0644"
-  # verify-full を想定。別の sslmode のときでも置いておいて無害
-  changed_when: false
-  failed_when: false
-
-- name: Ensure postgresql client is present (for schema apply)
-  ansible.builtin.package:
-    name: postgresql-client
-    state: present
-# =====================================================
 
 - name: Ensure app subdirs for views and routes
   ansible.builtin.file:
@@ -159,25 +143,40 @@
     group: edunotes
     mode: "0644"
 
-- name: Compose db_url fact from parts (URL-encode password)
-  ansible.builtin.set_fact:
-    db_url: >-
-      postgres://{{ db_user }}:{{ db_password | urlencode }}@{{ db_host }}:5432/{{ db_name }}
-  when:
-    - db_host is defined
-    - db_user is defined
-    - db_password is defined
-    - db_name is defined
+# ★ 追加：psql クライアントの確保（Ubuntu/Debian）
+- name: Ensure PostgreSQL client is installed
+  ansible.builtin.apt:
+    name: postgresql-client
+    state: present
+    update_cache: yes
+  when: ansible_os_family | lower == "debian"
 
+# ★ ここだけ堅牢化：env を読み、SSL ありで psql 実行（idempotent）
 - name: Apply DB schema (idempotent)
   ansible.builtin.shell: |
-    set -e
-    psql "{{ db_url }}" -f /opt/edunotes/schema.sql
+    set -euo pipefail
+    # /etc/edunotes/env を読み込む（PGSSLMODE/PGSSLROOTCERT を使えるように）
+    if [ -f /etc/edunotes/env ]; then set -a; . /etc/edunotes/env; set +a; fi
+
+    # 接続先ホスト（RDS エンドポイント）を URL から抽出
+    H="$(echo "{{ db_url }}" | sed -E 's|.*//[^@]*@([^:/]+).*|\1|')"
+
+    # SSL オプション（定義されている時だけ付与）
+    SSL_OPTS=""
+    if [ -n "${PGSSLMODE:-}" ]; then
+      SSL_OPTS="${SSL_OPTS} sslmode=${PGSSLMODE}"
+    fi
+    if [ -n "${PGSSLROOTCERT:-}" ]; then
+      SSL_OPTS="${SSL_OPTS} sslrootcert=${PGSSLROOTCERT}"
+    fi
+
+    # スキーマ適用（失敗時は止める）
+    PGPASSWORD='{{ db_password }}' \
+    psql "host=${H} user={{ db_user }} dbname={{ db_name }}${SSL_OPTS:+ ${SSL_OPTS}}" \
+      -v ON_ERROR_STOP=1 \
+      -f /opt/edunotes/schema.sql
   args:
     executable: /bin/bash
-  environment:
-    PGSSLMODE: "{{ pg_sslmode | default('verify-full') }}"
-    PGSSLROOTCERT: "{{ pg_sslrootcert | default('/etc/ssl/certs/rds-global-bundle.pem') }}"
   when: db_url is defined
   changed_when: false
 
