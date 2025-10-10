@@ -11,7 +11,7 @@
 <section>
   <h3>本文</h3>
   <article style="border:1px solid #ddd; padding:1rem; border-radius:.5rem;">
-    <%- n.body_html %>
+    ${n.body_html}
   </article>
 </section>
 
@@ -38,7 +38,7 @@
             ${c.author_email} ／ ${new Date(c.created_at).toLocaleString()}
           </div>
           <div style="border-left:3px solid #ddd; padding-left:.75rem; margin:.25rem 0 1rem;">
-            <div><%- c.body_html %></div>
+            <div>${c.body_html}</div>
           </div>
         </li>
       `).join('')}
