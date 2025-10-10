@@ -421,3 +421,19 @@
     name: amazon-cloudwatch-agent
     enabled: true
     state: restarted
+
+- name: Ensure public dir exists
+  ansible.builtin.file:
+    path: /opt/edunotes/public
+    state: directory
+    owner: www-data
+    group: www-data
+    mode: "0755"
+
+- name: Deploy uploader page
+  ansible.builtin.template:
+    src: uploader.html.j2
+    dest: /opt/edunotes/public/uploader.html
+    owner: www-data
+    group: www-data
+    mode: "0644"
