@@ -80,7 +80,7 @@
     --output text
   register: redis_url_cmd
   changed_when: false
-  failed_when: false    # 失敗させない（重要）
+  failed_when: false
 
 - name: Override redis_url only when SSM param exists
   ansible.builtin.set_fact:
@@ -143,7 +143,18 @@
     group: edunotes
     mode: "0644"
 
-# ★ 追加：psql クライアントの確保（Ubuntu/Debian）
+# ★（戻す）DB_URL を組み立てる
+- name: Compose db_url fact from parts (URL-encode password)
+  ansible.builtin.set_fact:
+    db_url: >-
+      postgres://{{ db_user }}:{{ db_password | urlencode }}@{{ db_host }}:5432/{{ db_name }}
+  when:
+    - db_host is defined
+    - db_user is defined
+    - db_password is defined
+    - db_name is defined
+
+# ★ 追加：psql クライアントを確保
 - name: Ensure PostgreSQL client is installed
   ansible.builtin.apt:
     name: postgresql-client
@@ -151,26 +162,15 @@
     update_cache: yes
   when: ansible_os_family | lower == "debian"
 
-# ★ ここだけ堅牢化：env を読み、SSL ありで psql 実行（idempotent）
+# ★ env を読んで SSL つきで schema を流す（idempotent）
 - name: Apply DB schema (idempotent)
   ansible.builtin.shell: |
     set -euo pipefail
-    # /etc/edunotes/env を読み込む（PGSSLMODE/PGSSLROOTCERT を使えるように）
     if [ -f /etc/edunotes/env ]; then set -a; . /etc/edunotes/env; set +a; fi
-
-    # 接続先ホスト（RDS エンドポイント）を URL から抽出
     H="$(echo "{{ db_url }}" | sed -E 's|.*//[^@]*@([^:/]+).*|\1|')"
-
-    # SSL オプション（定義されている時だけ付与）
     SSL_OPTS=""
-    if [ -n "${PGSSLMODE:-}" ]; then
-      SSL_OPTS="${SSL_OPTS} sslmode=${PGSSLMODE}"
-    fi
-    if [ -n "${PGSSLROOTCERT:-}" ]; then
-      SSL_OPTS="${SSL_OPTS} sslrootcert=${PGSSLROOTCERT}"
-    fi
-
-    # スキーマ適用（失敗時は止める）
+    if [ -n "${PGSSLMODE:-}" ]; then SSL_OPTS="${SSL_OPTS} sslmode=${PGSSLMODE}"; fi
+    if [ -n "${PGSSLROOTCERT:-}" ]; then SSL_OPTS="${SSL_OPTS} sslrootcert=${PGSSLROOTCERT}"; fi
     PGPASSWORD='{{ db_password }}' \
     psql "host=${H} user={{ db_user }} dbname={{ db_name }}${SSL_OPTS:+ ${SSL_OPTS}}" \
       -v ON_ERROR_STOP=1 \
@@ -180,7 +180,7 @@
   when: db_url is defined
   changed_when: false
 
-# （※ 再起動は最後にまとめる：ここが唯一の位置変更）
+# （※ 再起動は最後にまとめる）
 - name: Restart edunotes service (after all files are in place)
   ansible.builtin.systemd:
     name: edunotes
