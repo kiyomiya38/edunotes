@@ -87,14 +87,37 @@
     redis_url: "{{ redis_url_cmd.stdout | trim }}"
   when: redis_url_cmd.rc == 0 and (redis_url_cmd.stdout | trim) != ''
 
-- name: Fallback compose redis_url from redis_host/password when SSM param is missing
+# Fallback: SSMに /edunotes/redis/url が無い場合のみ、自前でREDIS_URLを組み立てる
+# ただし redis_host が空/未設定なら絶対に生成しない（@:6379/0 を防ぐ）
+- name: Fallback compose redis_url from redis_host/password when SSM param is missing (strict)
   ansible.builtin.set_fact:
-    redis_url: "redis://:{{ (redis_password | default('') ) | urlencode }}@{{ redis_host }}:{{ redis_port | default(6379) }}/0"
+    redis_url: >-
+      redis://:{{ (redis_password | default('') ) | urlencode }}@
+      {{ redis_host | trim }}:{{ redis_port | default(6379) }}/0
   when:
     - (redis_url is not defined) or (redis_url | trim) == ''
     - redis_host is defined
-    - (redis_host | trim) != ''
-    - redis_password is defined
+    - (redis_host | trim) | length > 0
+
+# 生成されたURLが明らかに不正なら捨てる（@:6379/0 等）
+- name: Clear redis_url when it looks invalid
+  ansible.builtin.set_fact:
+    redis_url: ""
+  when:
+    - redis_url is defined
+    - redis_url | trim | regex_search('^redis://:@(:[0-9]+)?/0$')
+
+# ここで“空のREDIS_URLでの誤配備”を防ぎたいなら assert（任意）
+- name: Assert redis_url is present (to avoid CSRF/session pitfalls)  # ← 任意
+  ansible.builtin.assert:
+    that:
+      - (redis_url | default('') | trim) != ''
+    fail_msg: >-
+      redis_url が空です。SSM /edunotes/redis/url を作成するか、
+      もしくは inventory/group_vars で redis_host/redis_password を設定してください。
+    success_msg: "redis_url is set."
+  ignore_errors: false
+
 # ── ここまで ───────────────────────────────────────────
 
 - name: Render /etc/edunotes/env
