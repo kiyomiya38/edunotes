@@ -87,12 +87,14 @@
     redis_url: "{{ redis_url_cmd.stdout | trim }}"
   when: redis_url_cmd.rc == 0 and (redis_url_cmd.stdout | trim) != ''
 
-- name: Fallback compose redis_url from facts when SSM missing
+- name: Fallback compose redis_url from redis_host/password when SSM param is missing
   ansible.builtin.set_fact:
-    redis_url: "redis://:{{ redis_password | urlencode }}@{{ redis_host }}:6379/0"
+    redis_url: "redis://:{{ (redis_password | default('') ) | urlencode }}@{{ redis_host }}:{{ redis_port | default(6379) }}/0"
   when:
-    (redis_url is not defined or (redis_url | trim) == '') and
-    (redis_host is defined) and (redis_password is defined)
+    - (redis_url is not defined) or (redis_url | trim) == ''
+    - redis_host is defined
+    - (redis_host | trim) != ''
+    - redis_password is defined
 # ── ここまで ───────────────────────────────────────────
 
 - name: Render /etc/edunotes/env
