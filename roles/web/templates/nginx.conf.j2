@@ -5,6 +5,7 @@ server {
   server_name _;
 
   root /opt/edunotes/public;
+  index index.html;   # ← 追加：静的ホームを有効に
 
   location /assets/ {
     try_files $uri =404;
@@ -19,7 +20,22 @@ server {
     access_log off;
   }
 
-  # アプリへのプロキシ
+  # ── 追加：ランディング & アップローダを静的で返す ──
+  location = / {
+    try_files /index.html =404;
+  }
+  location = /index.html {
+    try_files /index.html =404;
+  }
+  location = /uploader {
+    try_files /uploader.html =404;
+  }
+  location = /uploader.html {
+    try_files /uploader.html =404;
+  }
+  # ────────────────────────────────────────────────
+
+  # アプリへのプロキシ（/notes, /login 等はこの汎用ルールで引き続きOK）
   location / {
     proxy_pass         http://127.0.0.1:3000;
     proxy_http_version 1.1;

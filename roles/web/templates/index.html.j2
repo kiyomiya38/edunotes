@@ -1,59 +1,38 @@
-<!-- index.html.j2 -->
-<!doctype html>
-<html lang="ja">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>EduNotes — S3 Uploader</title>
-  <style>
-    body { font-family: system-ui, sans-serif; margin: 2rem; }
-    header { font-size: 1.25rem; margin-bottom: 1rem; }
-    .card { border: 1px solid #ddd; border-radius: 12px; padding: 1rem; max-width: 560px; }
-    .row { margin: .75rem 0; }
-    .result { margin-top: 1rem; white-space: pre-wrap; background:#f7f7f7; padding:.75rem; border-radius:8px; }
-    button { padding: .6rem 1rem; border-radius: 8px; border: 1px solid #bbb; background: #fff; cursor: pointer; }
-  </style>
-</head>
-<body>
-  <header>EduNotes S3 Uploader</header>
+<!-- roles/web/templates/index.html.j2 -->
+<!doctype html><html lang="ja"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>EduNotes — Home</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.css">
+<style>
+  .grid{display:grid;gap:1rem;grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+  .card{border:1px solid #ddd;padding:1rem;border-radius:.75rem}
+  .muted{opacity:.7}
+</style>
+</head><body>
+<h1>EduNotes</h1>
+<p class="muted">ようこそ。利用したいサービスを選んでください。</p>
 
+<div class="grid">
   <div class="card">
-    <div class="row">
-      <input id="file" type="file" />
-    </div>
-    <div class="row">
-      <button id="btn">Upload</button>
-    </div>
-    <div class="row result" id="out">Ready.</div>
+    <h3>📝 Notes</h3>
+    <p>ノート作成・タグ付け・コメント。</p>
+    <p><a href="/notes">Open</a></p>
   </div>
+  <div class="card">
+    <h3>📦 S3 Uploader</h3>
+    <p>ファイルをオブジェクトストレージにアップロード。</p>
+    <p><a href="/uploader.html">Open</a></p>
+  </div>
+  <div class="card">
+    <h3>🩺 System</h3>
+    <p class="muted">ヘルスチェック／メトリクス。</p>
+    <p><a href="/healthz" target="_blank" rel="noreferrer">/healthz</a> ・
+       <a href="/readyz" target="_blank" rel="noreferrer">/readyz</a> ・
+       <a href="/metrics" target="_blank" rel="noreferrer">/metrics</a></p>
+  </div>
+</div>
 
-  <script>
-    const $ = (s) => document.querySelector(s);
-    $("#btn").addEventListener("click", async () => {
-      const f = $("#file").files[0];
-      if (!f) { $("#out").textContent = "ファイルを選んでください"; return; }
-      const fd = new FormData(); fd.append("file", f);
-      $("#out").textContent = "Uploading...";
-      try {
-        const r = await fetch("/api/upload", { method: "POST", body: fd });
-        const j = await r.json();
-        if (!j.ok) throw new Error(j.error || "upload failed");
-
-        // 表示は displayName を優先
-        const name = j.displayName || f.name || "(no name)";
-
-        // key は保持しても画面には出さない（内部で使う場合のみ）
-        console.log("S3 key:", j.key);
-
-        $("#out").innerHTML =
-          `✔ アップロード完了\n` +
-          `ファイル名: ${name}\n` +
-          `size: ${j.size} bytes\n` +
-          `リンク: <a href="${j.url}" target="_blank" rel="noreferrer">Signed URL (10分)</a>`;
-      } catch (e) {
-        $("#out").textContent = "Error: " + e.message;
-      }
-    });
-  </script>
-</body>
-</html>
+<footer class="muted" style="margin-top:2rem">
+  <hr><small>© EduNotes</small>
+</footer>
+</body></html>
