@@ -143,18 +143,7 @@
     group: edunotes
     mode: "0644"
 
-# ★（戻す）DB_URL を組み立てる
-- name: Compose db_url fact from parts (URL-encode password)
-  ansible.builtin.set_fact:
-    db_url: >-
-      postgres://{{ db_user }}:{{ db_password | urlencode }}@{{ db_host }}:5432/{{ db_name }}
-  when:
-    - db_host is defined
-    - db_user is defined
-    - db_password is defined
-    - db_name is defined
-
-# ★ 追加：psql クライアントを確保
+# ★ psql クライアント（Debian/Ubuntu）
 - name: Ensure PostgreSQL client is installed
   ansible.builtin.apt:
     name: postgresql-client
@@ -162,25 +151,47 @@
     update_cache: yes
   when: ansible_os_family | lower == "debian"
 
-# ★ env を読んで SSL つきで schema を流す（idempotent）
+# ★ RDS ルート証明書（必要な場合のみ取得）
+- name: Ensure RDS global root bundle exists (if path in env)
+  ansible.builtin.shell: |
+    set -euo pipefail
+    # env を読み、PGSSLROOTCERT が /etc/ssl/certs/rds-global-bundle.pem のときだけ取得
+    if [ -f /etc/edunotes/env ]; then set -a; . /etc/edunotes/env; set +a; fi
+    TARGET="${PGSSLROOTCERT:-}"
+    if [ "${TARGET}" = "/etc/ssl/certs/rds-global-bundle.pem" ] && [ ! -s "${TARGET}" ]; then
+      curl -fsSL -o "${TARGET}" https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem
+      chmod 0644 "${TARGET}"
+    fi
+  args:
+    executable: /bin/bash
+  changed_when: false
+
+# ★ env を読んでそのまま DB_URL でスキーマ適用（idempotent）
 - name: Apply DB schema (idempotent)
   ansible.builtin.shell: |
     set -euo pipefail
+    # /etc/edunotes/env を読み込み
     if [ -f /etc/edunotes/env ]; then set -a; . /etc/edunotes/env; set +a; fi
-    H="$(echo "{{ db_url }}" | sed -E 's|.*//[^@]*@([^:/]+).*|\1|')"
-    SSL_OPTS=""
-    if [ -n "${PGSSLMODE:-}" ]; then SSL_OPTS="${SSL_OPTS} sslmode=${PGSSLMODE}"; fi
-    if [ -n "${PGSSLROOTCERT:-}" ]; then SSL_OPTS="${SSL_OPTS} sslrootcert=${PGSSLROOTCERT}"; fi
-    PGPASSWORD='{{ db_password }}' \
-    psql "host=${H} user={{ db_user }} dbname={{ db_name }}${SSL_OPTS:+ ${SSL_OPTS}}" \
-      -v ON_ERROR_STOP=1 \
-      -f /opt/edunotes/schema.sql
+    if [ -z "${DB_URL:-}" ]; then
+      echo "[INFO] DB_URL not set. Skip schema apply."
+      exit 0
+    fi
+
+    CONN="${DB_URL}"
+
+    # もし verify-full が指定されていて rootcert が見つからない場合は一時的に require に変更して適用
+    if [ "${PGSSLMODE:-}" = "verify-full" ] && [ -n "${PGSSLROOTCERT:-}" ] && [ ! -s "${PGSSLROOTCERT}" ]; then
+      echo "[WARN] PGSSLROOTCERT not found. Temporarily using sslmode=require for schema apply."
+      CONN="${DB_URL}?sslmode=require"
+    fi
+
+    # psql 実行（失敗時は即エラー）
+    psql "${CONN}" -v ON_ERROR_STOP=1 -f /opt/edunotes/schema.sql
   args:
     executable: /bin/bash
-  when: db_url is defined
   changed_when: false
 
-# （※ 再起動は最後にまとめる）
+# （※ 再起動は最後にまとめる：ここが唯一の位置変更）
 - name: Restart edunotes service (after all files are in place)
   ansible.builtin.systemd:
     name: edunotes
