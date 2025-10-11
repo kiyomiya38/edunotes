@@ -573,6 +573,15 @@
   register: migration_result
   failed_when: false
 
+# --- seed スクリプト用ディレクトリを先に作る ---
+- name: Ensure scripts directory exists
+  ansible.builtin.file:
+    path: /opt/edunotes/scripts
+    state: directory
+    owner: edunotes
+    group: edunotes
+    mode: "0755"
+
 # --- 管理者ユーザーのシード（初回のみパスワードが必要） ---
 - name: Ship seed_admin script
   template:
