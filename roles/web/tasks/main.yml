@@ -598,9 +598,14 @@
     node scripts/seed_admin.js
   args:
     executable: /bin/bash
+  vars:
+    _db_url_fallback: >-
+      postgres://{{ db_user }}:{{ db_pass | urlencode }}@{{ db_host }}:{{ db_port | default(5432) }}/{{ db_name }}
   environment:
-    DB_URL: "{{ edunotes_env.DB_URL }}"
+    # まずは OS 環境の DB_URL を優先。無ければ SSM/Secrets から組み立てたフォールバックを使う
+    DB_URL: "{{ (lookup('env','DB_URL') | default('') | trim) | default(_db_url_fallback, true) }}"
     ADMIN_EMAIL: "{{ admin_email | default('admin@example.com') }}"
-    ADMIN_NAME: "{{ admin_name  | default('Administrator') }}"
+    ADMIN_NAME:  "{{ admin_name  | default('Administrator') }}"
     ADMIN_SEED_PASSWORD: "{{ admin_seed_password | default('') }}"
   when: (admin_seed_password | default('')) | length > 0
+
