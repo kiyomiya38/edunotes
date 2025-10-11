@@ -1,6 +1,30 @@
 // seed_admin.js
+const fs = require('fs');                // ← 追加: CA 読み込み用
 const { Client } = require('pg');
 const bcrypt = require('bcrypt');
+
+// 環境変数から SSL 設定を構築（verify-full なら CA を読む）
+function buildPgSslFromEnv() {
+  const mode = (process.env.PGSSLMODE || '').toLowerCase();
+
+  // 明示 disable or 未設定なら SSL 無し
+  if (!mode || mode === 'disable') return false;
+
+  // verify-full なら厳密検証、それ以外（require 等）は検証を緩める
+  const ssl = { rejectUnauthorized: mode === 'verify-full' };
+
+  // PGSSLROOTCERT が指定されていれば読む（無ければ既定を試す）
+  const caPath = process.env.PGSSLROOTCERT || '/etc/ssl/certs/rds-global-bundle.pem';
+  try {
+    if (fs.existsSync(caPath)) {
+      ssl.ca = fs.readFileSync(caPath, 'utf8');
+    }
+  } catch (_) {
+    // CA 読み込み失敗時はそのまま（mode が verify-full だと接続に失敗する可能性あり）
+  }
+
+  return ssl;
+}
 
 (async () => {
   try {
@@ -14,7 +38,11 @@ const bcrypt = require('bcrypt');
       process.exit(0);
     }
 
-    const client = new Client({ connectionString: dbUrl, ssl: { rejectUnauthorized: true }});
+    // ここだけ修正: 固定の { rejectUnauthorized: true } をやめ、環境から構築
+    const client = new Client({
+      connectionString: dbUrl,
+      ssl: buildPgSslFromEnv(),
+    });
     await client.connect();
 
     const { rows } = await client.query('SELECT id FROM users WHERE email=$1', [adminEmail]);
