@@ -407,6 +407,30 @@
     npm_config_cache: /home/edunotes/.npm
   notify: Restart edunotes
 
+# 親ディレクトリを先に作る（念のため routes と views を明示）
+- name: Ensure base directories for routes and views
+  ansible.builtin.file:
+    path: "/opt/edunotes/{{ item }}"
+    state: directory
+    owner: edunotes
+    group: edunotes
+    mode: "0755"
+  loop:
+    - routes
+    - views
+
+# 既に入っているはずですが、無ければ追加：
+- name: Ensure admin/docs view directories exist
+  ansible.builtin.file:
+    path: "/opt/edunotes/views/{{ item }}"
+    state: directory
+    owner: edunotes
+    group: edunotes
+    mode: "0755"
+  loop:
+    - admin
+    - docs
+
 - name: Start & enable app
   systemd:
     name: edunotes
