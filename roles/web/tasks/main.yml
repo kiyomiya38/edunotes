@@ -654,6 +654,7 @@
   args:
     executable: /bin/bash
   environment:
+    NODE_TLS_REJECT_UNAUTHORIZED: "0"
     # 明示的に渡しておく（env ファイルに無くても動くように）
     DB_URL: "{{ lookup('env','DB_URL') | default('') or edunotes_env.DB_URL | default('') }}"
     PGSSLMODE: "{{ pg_sslmode | default('verify-full') }}"
