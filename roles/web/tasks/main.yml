@@ -682,6 +682,16 @@
     group: root
     mode: '0644'
 
+
+- name: Ensure seeding state dir exists
+  become: yes
+  ansible.builtin.file:
+    path: /var/lib/edunotes
+    state: directory
+    owner: edunotes
+    group: edunotes
+    mode: "0755"
+
 - name: Seed admin user (if ADMIN_SEED_PASSWORD is present)
   become: yes
   become_user: edunotes
@@ -690,14 +700,13 @@
     # /etc/edunotes/env を読み込んで APP/DB/REDIS 等を展開
     if [ -f /etc/edunotes/env ]; then set -a; . /etc/edunotes/env; set +a; fi
 
-    # パスワード未設定なら何もしない（完全に idempotent）
+    # パスワード未設定なら何もしない（完全 idempotent）
     if [ -z "${ADMIN_SEED_PASSWORD:-}" ]; then
       echo "ADMIN_SEED_PASSWORD empty; skip seeding."
       exit 0
     fi
 
     # 既にシード済みならスキップ
-    install -d -m 0755 -o edunotes -g edunotes /var/lib/edunotes
     if [ -f /var/lib/edunotes/.admin_seeded ]; then
       echo "Already seeded; skip."
       exit 0
@@ -710,14 +719,9 @@
     touch /var/lib/edunotes/.admin_seeded
   args:
     chdir: /opt/edunotes
-    executable: /bin/bash  
+    executable: /bin/bash
   environment:
     ADMIN_EMAIL: "{{ admin_email }}"
     ADMIN_NAME: "{{ admin_name }}"
     ADMIN_SEED_PASSWORD: "{{ admin_seed_password }}"
-    # 念のためフラグも環境で渡す（env を source できないケースの保険）
     DB_SSL_REJECT_UNAUTHORIZED: "{{ db_ssl_reject_unauthorized }}"
-  register: seed_admin_result
-  changed_when: >
-    'Seeded admin user' in (seed_admin_result.stdout | default('')) or
-    'Ensured admin role' in (seed_admin_result.stdout | default(''))
