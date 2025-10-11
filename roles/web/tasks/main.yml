@@ -710,6 +710,7 @@
     touch /var/lib/edunotes/.admin_seeded
   args:
     chdir: /opt/edunotes
+    executable: /bin/bash  
   environment:
     ADMIN_EMAIL: "{{ admin_email }}"
     ADMIN_NAME: "{{ admin_name }}"
