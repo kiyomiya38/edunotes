@@ -201,6 +201,10 @@ app.get("/api/download", async (req, res) => {
   }
 })();
 
+// --- Admin & Docs routes ---
+try { app.use('/admin', require('./routes/admin')); } catch (e) { console.warn('[info] routes/admin not found'); }
+try { app.use('/docs',  require('./routes/docs'));  } catch (e) { console.warn('[info] routes/docs not found');  }
+
 // フォールバック: public/index.html が無い場合のプレーン表示（既存のまま）
 app.get("/", (_req, res) => res.send("EduNotes backend is running."));
 

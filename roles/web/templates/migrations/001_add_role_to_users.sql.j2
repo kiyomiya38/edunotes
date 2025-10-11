@@ -1,0 +1,12 @@
+-- 001_add_role_to_users.sql
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = '{{ app_db_users_table | default("users") }}' AND column_name = 'role'
+  ) THEN
+    ALTER TABLE {{ app_db_users_table | default("users") }}
+      ADD COLUMN role TEXT NOT NULL DEFAULT 'user';
+    CREATE INDEX IF NOT EXISTS idx_users_role ON {{ app_db_users_table | default("users") }}(role);
+  END IF;
+END $$;

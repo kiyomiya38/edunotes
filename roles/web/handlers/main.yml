@@ -4,3 +4,9 @@
   service:
     name: nginx
     state: restarted
+
+- name: Restart edunotes
+  systemd:
+    name: edunotes
+    state: restarted
+    enabled: true

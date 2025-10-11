@@ -1,0 +1,39 @@
+// seed_admin.js
+const { Client } = require('pg');
+const bcrypt = require('bcrypt');
+
+(async () => {
+  try {
+    const dbUrl = process.env.DB_URL;
+    const adminEmail = process.env.ADMIN_EMAIL || 'admin@example.com';
+    const adminName  = process.env.ADMIN_NAME  || 'Administrator';
+    const adminPass  = process.env.ADMIN_SEED_PASSWORD || '';
+
+    if (!dbUrl || !adminPass) {
+      console.error('DB_URL or ADMIN_SEED_PASSWORD missing; skip seeding.');
+      process.exit(0);
+    }
+
+    const client = new Client({ connectionString: dbUrl, ssl: { rejectUnauthorized: true }});
+    await client.connect();
+
+    const { rows } = await client.query('SELECT id FROM users WHERE email=$1', [adminEmail]);
+    if (rows.length === 0) {
+      const hash = await bcrypt.hash(adminPass, 12);
+      await client.query(
+        'INSERT INTO users (name, email, password_hash, role) VALUES ($1,$2,$3,$4)',
+        [adminName, adminEmail, hash, 'admin']
+      );
+      console.log(`Seeded admin user: ${adminEmail}`);
+    } else {
+      // 既存なら role を admin に引き上げる（パスワードは変更しない）
+      await client.query('UPDATE users SET role=$1 WHERE email=$2', ['admin', adminEmail]);
+      console.log(`Ensured admin role for: ${adminEmail}`);
+    }
+
+    await client.end();
+  } catch (e) {
+    console.error('seed_admin error:', e);
+    process.exit(1);
+  }
+})();

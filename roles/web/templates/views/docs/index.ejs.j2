@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>Docs</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <style>body{font-family:system-ui,-apple-system,Segoe UI,Roboto;max-width:960px;margin:24px auto;padding:0 16px}</style>
+</head>
+<body>
+  <h1>受講マニュアル</h1>
+  <% if (!files.length) { %>
+    <p>まだMarkdownファイルがありません。</p>
+  <% } else { %>
+  <ul>
+    <% files.forEach(f => { const slug = f.replace(/\.md$/i,''); %>
+      <li><a href="/docs/<%= slug %>"><%= f %></a></li>
+    <% }) %>
+  </ul>
+  <% } %>
+</body>
+</html>

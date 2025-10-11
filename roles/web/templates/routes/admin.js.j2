@@ -1,0 +1,24 @@
+// routes/admin.js
+const express = require('express');
+const router = express.Router();
+
+function requireAdmin(req, res, next) {
+  // セッションに user && role==='admin' が入っている前提（既存ログインで user を格納）
+  if (req.session && req.session.user && req.session.user.role === 'admin') return next();
+  return res.status(403).send('Forbidden');
+}
+
+router.get('/', requireAdmin, async (req, res) => {
+  // 最小ダッシュボード例（ユーザー件数やノーツ件数など）
+  const db = req.app.get('db'); // 既存の db 接続ハンドルを server.js で set している前提
+  let stats = { users: 0, notes: 0 };
+  try {
+    const u = await db.query('SELECT COUNT(*)::int AS c FROM users');
+    const n = await db.query('SELECT COUNT(*)::int AS c FROM notes');
+    stats.users = u.rows[0].c; stats.notes = n.rows[0].c;
+  } catch (e) { /* noop */ }
+
+  res.render('admin/index', { title: 'Admin', stats });
+});
+
+module.exports = router;

@@ -265,6 +265,20 @@
     HOME: /home/edunotes
     npm_config_cache: /home/edunotes/.npm
 
+- name: Add docs dependencies (markdown-it, gray-matter)
+  shell: |
+    set -e
+    cd {{ app_dir }}
+    npm install --omit=dev markdown-it gray-matter
+  args:
+    executable: /bin/bash
+  when: app_repo | length > 0
+  become: true
+  become_user: edunotes
+  environment:
+    HOME: /home/edunotes
+    npm_config_cache: /home/edunotes/.npm
+
 # 6) Nginx vhost（Ubuntu流儀）
 - name: Render nginx vhost
   template:
@@ -310,6 +324,63 @@
 - name: Deploy edunotes app (S3)
   import_tasks: app_s3.yml
   tags: ['app']
+
+# --- Docs ディレクトリ（/opt/edunotes/docs）を作成して配布 ---
+- name: Ensure docs directory exists
+  file:
+    path: /opt/edunotes/docs
+    state: directory
+    owner: edunotes
+    group: edunotes
+    mode: "0755"
+
+- name: Ship docs markdown files (if any)
+  copy:
+    src: docs/
+    dest: /opt/edunotes/docs/
+    owner: edunotes
+    group: edunotes
+    mode: "0644"
+  ignore_errors: true
+  notify: Restart edunotes
+
+# --- ルーターとビューを配布 ---
+- name: Ship /admin and /docs routes
+  template:
+    src: "routes/{{ item }}.j2"
+    dest: "/opt/edunotes/routes/{{ item }}"
+    owner: edunotes
+    group: edunotes
+    mode: "0644"
+  loop: [admin.js, docs.js]
+  notify: Restart edunotes
+
+- name: Ship admin/docs views
+  template:
+    src: "views/{{ item.src }}"
+    dest: "/opt/edunotes/views/{{ item.dest }}"
+    owner: edunotes
+    group: edunotes
+    mode: "0644"
+  loop:
+    - { src: "admin/index.ejs.j2", dest: "admin/index.ejs" }
+    - { src: "docs/index.ejs.j2",  dest: "docs/index.ejs"  }
+    - { src: "docs/show.ejs.j2",   dest: "docs/show.ejs"   }
+  notify: Restart edunotes
+
+- name: Add docs dependencies (markdown-it, gray-matter) for S3 app
+  shell: |
+    set -e
+    cd /opt/edunotes
+    npm install --omit=dev --no-save markdown-it gray-matter
+  args:
+    executable: /bin/bash
+  become: true
+  become_user: edunotes
+  environment:
+    HOME: /home/edunotes
+    npm_config_cache: /home/edunotes/.npm
+  notify: Restart edunotes
 
 - name: Start & enable app
   systemd:
@@ -437,3 +508,48 @@
     owner: www-data
     group: www-data
     mode: "0644"
+
+# --- DB マイグレーション（role 列追加） ---
+- name: Place DB migration files
+  template:
+    src: "migrations/001_add_role_to_users.sql.j2"
+    dest: "/opt/edunotes/migrations/001_add_role_to_users.sql"
+    owner: edunotes
+    group: edunotes
+    mode: "0644"
+
+- name: Run migration 001 (idempotent)
+  shell: |
+    set -euo pipefail
+    export PGPASSWORD=""
+    node -e "console.log('connecting for migration...')" >/dev/null
+    psql "{{ lookup('env','DB_URL') | default('') }}" -v "ON_ERROR_STOP=1" -f /opt/edunotes/migrations/001_add_role_to_users.sql
+  args:
+    executable: /bin/bash
+  environment:
+    DB_URL: "{{ lookup('env','DB_URL') | default('') or edunotes_env.DB_URL }}"
+  register: migration_result
+  failed_when: false
+
+# --- 管理者ユーザーのシード（初回のみパスワードが必要） ---
+- name: Ship seed_admin script
+  template:
+    src: "scripts/seed_admin.js.j2"
+    dest: "/opt/edunotes/scripts/seed_admin.js"
+    owner: edunotes
+    group: edunotes
+    mode: "0755"
+
+- name: Seed admin user (if ADMIN_SEED_PASSWORD is present)
+  shell: |
+    set -euo pipefail
+    cd /opt/edunotes
+    node scripts/seed_admin.js
+  args:
+    executable: /bin/bash
+  environment:
+    DB_URL: "{{ edunotes_env.DB_URL }}"
+    ADMIN_EMAIL: "{{ admin_email | default('admin@example.com') }}"
+    ADMIN_NAME: "{{ admin_name  | default('Administrator') }}"
+    ADMIN_SEED_PASSWORD: "{{ admin_seed_password | default('') }}"
+  when: (admin_seed_password | default('')) | length > 0
