@@ -645,23 +645,26 @@
     npm_config_cache: /home/edunotes/.npm
 
 - name: Seed admin user (if ADMIN_SEED_PASSWORD is present)
+  become: yes
+  become_user: edunotes
   shell: |
     set -euo pipefail
     # /etc/edunotes/env を読み込んで APP/DB/REDIS 等の環境を展開
     if [ -f /etc/edunotes/env ]; then set -a; . /etc/edunotes/env; set +a; fi
+
+    # seed 実行時のみ、DB_URL に sslmode=no-verify を付与して証明書検証を無効化
+    if [ -n "${DB_URL:-}" ]; then
+      case "$DB_URL" in
+        *\?*) export DB_URL="${DB_URL}&sslmode=no-verify" ;;
+        *)    export DB_URL="${DB_URL}?sslmode=no-verify" ;;
+      esac
+    fi
+
     cd /opt/edunotes
     node scripts/seed_admin.js
   args:
     executable: /bin/bash
-  environment:
-    NODE_TLS_REJECT_UNAUTHORIZED: "0"
-    # 明示的に渡しておく（env ファイルに無くても動くように）
-    DB_URL: "{{ lookup('env','DB_URL') | default('') or edunotes_env.DB_URL | default('') }}"
-    PGSSLMODE: "{{ pg_sslmode | default('verify-full') }}"
-    PGSSLROOTCERT: "{{ pg_sslrootcert | default('/etc/ssl/certs/rds-global-bundle.pem') }}"
-    ADMIN_EMAIL: "{{ admin_email | default('admin@example.com') }}"
-    ADMIN_NAME: "{{ admin_name  | default('Administrator') }}"
-    ADMIN_SEED_PASSWORD: "{{ admin_seed_password | default('') }}"
-  when: (admin_seed_password | default('')) | length > 0
-
-
+  register: seed_result
+  failed_when: seed_result.rc not in [0]
+  when:
+    - lookup('env','ADMIN_SEED_PASSWORD') | default('') | length > 0
