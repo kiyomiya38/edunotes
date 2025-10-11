@@ -582,6 +582,20 @@
     group: edunotes
     mode: "0755"
 
+# --- seed_admin 用の bcrypt を確実に導入（S3配布の場合もカバー） ---
+- name: Install bcrypt for seed script
+  shell: |
+    set -e
+    cd /opt/edunotes
+    npm install --omit=dev --no-save bcrypt
+  args:
+    executable: /bin/bash
+  become: true
+  become_user: edunotes
+  environment:
+    HOME: /home/edunotes
+    npm_config_cache: /home/edunotes/.npm
+
 # --- 管理者ユーザーのシード（初回のみパスワードが必要） ---
 - name: Ship seed_admin script
   template:
