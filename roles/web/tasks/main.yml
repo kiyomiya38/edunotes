@@ -618,6 +618,34 @@
     group: edunotes
     mode: "0755"
 
+- name: Install pg for seed script
+  become: yes
+  become_user: edunotes
+  ansible.builtin.command: >
+    bash -lc 'set -e; cd /opt/edunotes; npm install --omit=dev --no-save pg'
+  args:
+    chdir: /opt/edunotes
+  changed_when: false
+
+- name: Install bcrypt for seed script
+  become: yes
+  become_user: edunotes
+  ansible.builtin.command: >
+    bash -lc 'set -e; cd /opt/edunotes; npm install --omit=dev --no-save bcrypt'
+  args:
+    chdir: /opt/edunotes
+  changed_when: false
+
+# ビルド不可プラットフォーム向けフォールバック
+- name: Install bcryptjs as fallback
+  become: yes
+  become_user: edunotes
+  ansible.builtin.command: >
+    bash -lc 'set -e; cd /opt/edunotes; npm install --omit=dev --no-save bcryptjs'
+  args:
+    chdir: /opt/edunotes
+  changed_when: false
+
 - name: Install bcrypt for seed script
   shell: |
     set -e
@@ -644,27 +672,51 @@
     HOME: /home/edunotes
     npm_config_cache: /home/edunotes/.npm
 
+- name: Ensure DB_SSL_REJECT_UNAUTHORIZED flag exists in /etc/edunotes/env
+  ansible.builtin.lineinfile:
+    path: /etc/edunotes/env
+    regexp: '^DB_SSL_REJECT_UNAUTHORIZED='
+    line: 'DB_SSL_REJECT_UNAUTHORIZED="{{ db_ssl_reject_unauthorized }}"'
+    create: yes
+    owner: root
+    group: root
+    mode: '0644'
+
 - name: Seed admin user (if ADMIN_SEED_PASSWORD is present)
   become: yes
   become_user: edunotes
-  shell: |
+  ansible.builtin.shell: |
     set -euo pipefail
-    # /etc/edunotes/env を読み込んで APP/DB/REDIS 等の環境を展開
+    # /etc/edunotes/env を読み込んで APP/DB/REDIS 等を展開
     if [ -f /etc/edunotes/env ]; then set -a; . /etc/edunotes/env; set +a; fi
 
-    # seed 実行時のみ、DB_URL に sslmode=no-verify を付与して証明書検証を無効化
-    if [ -n "${DB_URL:-}" ]; then
-      case "$DB_URL" in
-        *\?*) export DB_URL="${DB_URL}&sslmode=no-verify" ;;
-        *)    export DB_URL="${DB_URL}?sslmode=no-verify" ;;
-      esac
+    # パスワード未設定なら何もしない（完全に idempotent）
+    if [ -z "${ADMIN_SEED_PASSWORD:-}" ]; then
+      echo "ADMIN_SEED_PASSWORD empty; skip seeding."
+      exit 0
+    fi
+
+    # 既にシード済みならスキップ
+    install -d -m 0755 -o edunotes -g edunotes /var/lib/edunotes
+    if [ -f /var/lib/edunotes/.admin_seeded ]; then
+      echo "Already seeded; skip."
+      exit 0
     fi
 
     cd /opt/edunotes
     node scripts/seed_admin.js
+
+    # 成功したら印を残す
+    touch /var/lib/edunotes/.admin_seeded
   args:
-    executable: /bin/bash
-  register: seed_result
-  failed_when: seed_result.rc not in [0]
-  when:
-    - lookup('env','ADMIN_SEED_PASSWORD') | default('') | length > 0
+    chdir: /opt/edunotes
+  environment:
+    ADMIN_EMAIL: "{{ admin_email }}"
+    ADMIN_NAME: "{{ admin_name }}"
+    ADMIN_SEED_PASSWORD: "{{ admin_seed_password }}"
+    # 念のためフラグも環境で渡す（env を source できないケースの保険）
+    DB_SSL_REJECT_UNAUTHORIZED: "{{ db_ssl_reject_unauthorized }}"
+  register: seed_admin_result
+  changed_when: >
+    'Seeded admin user' in (seed_admin_result.stdout | default('')) or
+    'Ensured admin role' in (seed_admin_result.stdout | default(''))

@@ -57,3 +57,6 @@ edunotes_env:
   # RDS などで自己署名 CA を使っている場合の対策
   DB_SSL_REJECT_UNAUTHORIZED: "false"  # ← 文字列で "false" にしてください
   PGSSLMODE: "require"                 # ← 併用可（どちらか片方でも可）
+
+# DB の自己署名 CA を許容（RDS 旧証明書や社内CA向け）
+db_ssl_reject_unauthorized: "false"
