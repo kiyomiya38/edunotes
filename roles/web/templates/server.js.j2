@@ -99,6 +99,7 @@ try {
       }
     }
     pgPool = new Pool({ connectionString: process.env.DB_URL, ssl });
+    if (pgPool) app.set('db', pgPool);
   }
 } catch (e) {
   console.warn("[warn] Postgres not configured:", e?.message || e);
