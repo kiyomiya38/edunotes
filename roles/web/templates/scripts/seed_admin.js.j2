@@ -1,35 +1,9 @@
 // seed_admin.js
-const fs = require('fs');                // ← 追加: CA 読み込み用
 const { Client } = require('pg');
+
+// bcrypt はネイティブがなければ bcryptjs にフォールバック（既存方針のまま）
 let bcrypt;
-try {
-  bcrypt = require('bcrypt');      // ネイティブ版（あるなら優先）
-} catch (_) {
-  bcrypt = require('bcryptjs');    // 無ければ純JS版にフォールバック
-}
-
-// 環境変数から SSL 設定を構築（verify-full なら CA を読む）
-function buildPgSslFromEnv() {
-  const mode = (process.env.PGSSLMODE || '').toLowerCase();
-
-  // 明示 disable or 未設定なら SSL 無し
-  if (!mode || mode === 'disable') return false;
-
-  // verify-full なら厳密検証、それ以外（require 等）は検証を緩める
-  const ssl = { rejectUnauthorized: mode === 'verify-full' };
-
-  // PGSSLROOTCERT が指定されていれば読む（無ければ既定を試す）
-  const caPath = process.env.PGSSLROOTCERT || '/etc/ssl/certs/rds-global-bundle.pem';
-  try {
-    if (fs.existsSync(caPath)) {
-      ssl.ca = fs.readFileSync(caPath, 'utf8');
-    }
-  } catch (_) {
-    // CA 読み込み失敗時はそのまま（mode が verify-full だと接続に失敗する可能性あり）
-  }
-
-  return ssl;
-}
+try { bcrypt = require('bcrypt'); } catch (_) { bcrypt = require('bcryptjs'); }
 
 (async () => {
   try {
@@ -43,25 +17,65 @@ function buildPgSslFromEnv() {
       process.exit(0);
     }
 
-    // ここだけ修正: 固定の { rejectUnauthorized: true } をやめ、環境から構築
+    // 既存スクリプトの方針を崩さない：SSL 既定で厳格。
+    // もし環境変数で緩めたい場合は DB_SSL_REJECT_UNAUTHORIZED=false を渡す。
+    const sslReject =
+      (process.env.DB_SSL_REJECT_UNAUTHORIZED || 'true').toLowerCase() !== 'false';
+
     const client = new Client({
       connectionString: dbUrl,
-      ssl: buildPgSslFromEnv(),
+      ssl: { rejectUnauthorized: sslReject }
     });
     await client.connect();
 
+    // --- users テーブルの列を検出して、あるものだけ使う ---
+    const colRes = await client.query(`
+      SELECT column_name
+      FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = 'users'
+    `);
+    const cols = new Set(colRes.rows.map(r => r.column_name));
+
+    // よくある名称の差異に対応
+    const nameCol  = cols.has('name') ? 'name'
+                    : cols.has('username') ? 'username'
+                    : null;
+    const passCol  = cols.has('password_hash') ? 'password_hash'
+                    : cols.has('password')    ? 'password'
+                    : null;
+    const roleCol  = cols.has('role') ? 'role' : null;
+
+    if (!cols.has('email')) {
+      throw new Error('users テーブルに email 列がありません（必須）');
+    }
+    if (!passCol) {
+      throw new Error('users テーブルに password_hash / password のいずれかがありません（必須）');
+    }
+
+    // 既存ユーザー有無（email は必須）
     const { rows } = await client.query('SELECT id FROM users WHERE email=$1', [adminEmail]);
+
     if (rows.length === 0) {
-      const hash = await bcrypt.hash(adminPass, 12);
-      await client.query(
-        'INSERT INTO users (name, email, password_hash, role) VALUES ($1,$2,$3,$4)',
-        [adminName, adminEmail, hash, 'admin']
-      );
+      // 挿入用に存在する列のみで SQL を組み立てる
+      const columns = ['email', passCol];
+      const values  = [adminEmail, await bcrypt.hash(adminPass, 12)];
+      if (nameCol) { columns.unshift(nameCol); values.unshift(adminName); } // name/username を入れられるなら入れる
+      if (roleCol) { columns.push(roleCol); values.push('admin'); }         // role があれば admin をセット
+
+      // 動的プレースホルダ $1..$n を作成
+      const placeholders = values.map((_, i) => `$${i + 1}`);
+      const sql = `INSERT INTO users (${columns.join(', ')}) VALUES (${placeholders.join(', ')})`;
+
+      await client.query(sql, values);
       console.log(`Seeded admin user: ${adminEmail}`);
     } else {
-      // 既存なら role を admin に引き上げる（パスワードは変更しない）
-      await client.query('UPDATE users SET role=$1 WHERE email=$2', ['admin', adminEmail]);
-      console.log(`Ensured admin role for: ${adminEmail}`);
+      // 既存なら、role 列がある場合のみ引き上げ（元の方針を維持）
+      if (roleCol) {
+        await client.query(`UPDATE users SET ${roleCol}=$1 WHERE email=$2`, ['admin', adminEmail]);
+        console.log(`Ensured admin role for: ${adminEmail}`);
+      } else {
+        console.log(`User exists and no role column; nothing to update: ${adminEmail}`);
+      }
     }
 
     await client.end();
