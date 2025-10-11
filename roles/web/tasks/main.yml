@@ -548,14 +548,6 @@
     group: edunotes
     mode: "0755"
 
-- name: Place DB migration files
-  ansible.builtin.template:
-    src: "migrations/001_add_role_to_users.sql.j2"
-    dest: "/opt/edunotes/migrations/001_add_role_to_users.sql"
-    owner: edunotes
-    group: edunotes
-    mode: "0644"
-
 # --- DB マイグレーション（role 列追加） ---
 - name: Place DB migration files
   template:
@@ -566,15 +558,18 @@
     mode: "0644"
 
 - name: Run migration 001 (idempotent)
-  shell: |
+  ansible.builtin.shell: |
     set -euo pipefail
     export PGPASSWORD=""
     node -e "console.log('connecting for migration...')" >/dev/null
-    psql "{{ lookup('env','DB_URL') | default('') }}" -v "ON_ERROR_STOP=1" -f /opt/edunotes/migrations/001_add_role_to_users.sql
+    psql "${DB_URL}" -v "ON_ERROR_STOP=1" -f /opt/edunotes/migrations/001_add_role_to_users.sql
   args:
     executable: /bin/bash
+  vars:
+    _db_url_fallback: >-
+      postgres://{{ db_user }}:{{ db_pass | urlencode }}@{{ db_host }}:{{ db_port | default(5432) }}/{{ db_name }}
   environment:
-    DB_URL: "{{ lookup('env','DB_URL') | default('') or edunotes_env.DB_URL }}"
+    DB_URL: "{{ (lookup('env','DB_URL') | default('') | trim) | default(_db_url_fallback, true) }}"
   register: migration_result
   failed_when: false
 
