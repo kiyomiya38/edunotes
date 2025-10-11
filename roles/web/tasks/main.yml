@@ -334,6 +334,20 @@
     group: edunotes
     mode: "0755"
 
+- name: Check if role has docs sources
+  ansible.builtin.stat:
+    path: "{{ role_path }}/files/docs"
+  register: docs_src
+
+- name: Ship docs markdown files (if any)
+  ansible.builtin.copy:
+    src: docs/
+    dest: /opt/edunotes/docs/
+    owner: edunotes
+    group: edunotes
+    mode: "0644"
+  when: docs_src.stat.exists
+
 - name: Ship docs markdown files (if any)
   copy:
     src: docs/
@@ -354,6 +368,17 @@
     mode: "0644"
   loop: [admin.js, docs.js]
   notify: Restart edunotes
+
+- name: Ensure admin/docs view directories exist
+  ansible.builtin.file:
+    path: "/opt/edunotes/views/{{ item }}"
+    state: directory
+    owner: edunotes
+    group: edunotes
+    mode: "0755"
+  loop:
+    - admin
+    - docs
 
 - name: Ship admin/docs views
   template:
