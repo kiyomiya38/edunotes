@@ -1,7 +1,12 @@
 // seed_admin.js
 const fs = require('fs');                // ← 追加: CA 読み込み用
 const { Client } = require('pg');
-const bcrypt = require('bcrypt');
+let bcrypt;
+try {
+  bcrypt = require('bcrypt');      // ネイティブ版（あるなら優先）
+} catch (_) {
+  bcrypt = require('bcryptjs');    // 無ければ純JS版にフォールバック
+}
 
 // 環境変数から SSL 設定を構築（verify-full なら CA を読む）
 function buildPgSslFromEnv() {

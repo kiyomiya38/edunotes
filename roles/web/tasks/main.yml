@@ -618,6 +618,32 @@
     group: edunotes
     mode: "0755"
 
+- name: Install bcrypt for seed script
+  shell: |
+    set -e
+    cd /opt/edunotes
+    npm install --omit=dev --no-save bcrypt
+  args:
+    executable: /bin/bash
+  become: true
+  become_user: edunotes
+  environment:
+    HOME: /home/edunotes
+    npm_config_cache: /home/edunotes/.npm
+
+- name: Install bcryptjs as fallback
+  shell: |
+    set -e
+    cd /opt/edunotes
+    npm install --omit=dev --no-save bcryptjs
+  args:
+    executable: /bin/bash
+  become: true
+  become_user: edunotes
+  environment:
+    HOME: /home/edunotes
+    npm_config_cache: /home/edunotes/.npm
+
 - name: Seed admin user (if ADMIN_SEED_PASSWORD is present)
   shell: |
     set -euo pipefail
