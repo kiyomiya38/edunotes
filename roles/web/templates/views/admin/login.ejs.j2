@@ -1,0 +1,11 @@
+<%- include('../layout', { body: `
+<h2>管理者ログイン</h2>
+${error ? `<p style="color:red">${error}</p>` : '' }
+<form method="post" action="/admin/login">
+  <input type="hidden" name="_csrf" value="${csrfToken}">
+  <label>Email <input name="email" type="email" required></label>
+  <label>Password <input name="password" type="password" required></label>
+  <button>ログイン</button>
+</form>
+<p>一般ユーザーの方は <a href="/login">こちら</a></p>
+`, user, csrfToken }) %>
