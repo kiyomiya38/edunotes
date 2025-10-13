@@ -725,3 +725,20 @@
     ADMIN_NAME: "{{ admin_name }}"
     ADMIN_SEED_PASSWORD: "{{ admin_seed_password }}"
     DB_SSL_REJECT_UNAUTHORIZED: "{{ db_ssl_reject_unauthorized }}"
+
+- name: Ensure admin views dir exists
+  file:
+    path: /opt/edunotes/views/admin
+    state: directory
+    owner: edunotes
+    group: edunotes
+    mode: "0755"
+
+- name: Deploy admin login view
+  template:
+    src: views/admin/login.ejs.j2
+    dest: /opt/edunotes/views/admin/login.ejs
+    owner: edunotes
+    group: edunotes
+    mode: "0644"
+  notify: restart edunotes
