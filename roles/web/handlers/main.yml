@@ -1,12 +1,18 @@
 ---
 - name: Restart nginx
-  listen: Restart nginx
-  service:
+  listen:
+    - restart nginx
+    - Restart nginx
+  ansible.builtin.service:
     name: nginx
     state: restarted
 
 - name: Restart edunotes
-  systemd:
+  listen:
+    - restart edunotes
+    - Restart edunotes
+  ansible.builtin.systemd:
     name: edunotes
     state: restarted
+    daemon_reload: yes
     enabled: true
