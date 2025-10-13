@@ -28,18 +28,17 @@ app.use(morgan("combined"));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// static (public フォルダに index.html などを置く) ※既存のまま
+// static (public フォルダに index.html などを置く)
 app.use(express.static(path.join(__dirname, "public")));
 
-// ---- view (EJS) 最小有効化：操作画面で使用。public/index.html があればそちらも併用可能
+// ---- view (EJS)
 app.set("view engine", "ejs");
 app.set("views", path.join(process.cwd(), "views")); // /opt/edunotes/views を想定
 
-// ---- Redisセッション（将来の認証/UI用。既存APIには影響なし）
+// ---- Redisセッション（任意）
 let redisClient = null;
 let sessionEnabled = false;
 try {
-  // REDIS_URL 例: redis://:pass@<redis-endpoint>:6379/0
   if (process.env.REDIS_URL) {
     const client = new IORedis(process.env.REDIS_URL);
     app.use(
@@ -76,11 +75,10 @@ if (sessionEnabled) {
   });
 }
 
-// ---- PostgreSQL（UI/ノート機能用。既存APIには影響なし）
+// ---- PostgreSQL（任意）
 let pgPool = null;
 try {
   if (process.env.DB_URL) {
-    // ★ 追加: 環境変数から TLS を判定して CA を読み込み
     const mode = (process.env.PGSSLMODE || "").toLowerCase();
     let ssl = false;
     if (mode && mode !== "disable") {
@@ -89,12 +87,10 @@ try {
         const ca = fs.readFileSync(caPath, "utf8");
         ssl = {
           ca,
-          // verify-full のときだけ厳密検証。no-verify 等は拒否を緩める
           rejectUnauthorized: mode === "verify-full",
         };
       } catch (e) {
         console.warn("[warn] could not read PGSSLROOTCERT:", e?.message || e);
-        // CA が読めなかった場合でも mode に応じて動くように（最小干渉）
         ssl = { rejectUnauthorized: mode === "verify-full" };
       }
     }
@@ -112,6 +108,65 @@ app.use((req, _res, next) => {
   next();
 });
 
+// ===== 管理ログイン（最小追加）ここから =====
+async function __authUser(db, email, password) {
+  if (!db || !email || !password) return null;
+  try {
+    const row = (await db.query(
+      `SELECT id, email, password_hash, role FROM users WHERE email = $1 LIMIT 1`,
+      [String(email).trim()]
+    )).rows[0];
+    if (!row) return null;
+    let bcrypt;
+    try { bcrypt = require("bcrypt"); } catch (_) { bcrypt = require("bcryptjs"); }
+    const ok = await bcrypt.compare(String(password), row.password_hash);
+    if (!ok) return null;
+    return { id: row.id, email: row.email, role: row.role };
+  } catch (_) { return null; }
+}
+
+app.get("/admin/login", (req, res) => {
+  if (req.session?.user?.role === "admin") return res.redirect("/admin");
+  const token = typeof req.csrfToken === "function" ? req.csrfToken() : "";
+  if (typeof res.render === "function") {
+    try { return res.render("admin/login", { error: null, user: null, csrfToken: token }); } catch (_) {}
+  }
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.end(`
+    <h2>管理者ログイン</h2>
+    <form method="post" action="/admin/login">
+      <input type="hidden" name="_csrf" value="${token}">
+      <label>Email <input name="email" type="email" required></label>
+      <label>Password <input name="password" type="password" required></label>
+      <button>ログイン</button>
+    </form>
+    <p><a href="/login">一般ユーザーはこちら</a></p>
+  `);
+});
+
+app.post("/admin/login", async (req, res) => {
+  const { email, password } = req.body || {};
+  try {
+    const user = await __authUser(req.db, email, password);
+    if (!user || user.role !== "admin") {
+      const token = typeof req.csrfToken === "function" ? req.csrfToken() : "";
+      if (typeof res.render === "function") {
+        return res.status(401).render("admin/login", { error: "管理者アカウントでログインしてください", user: null, csrfToken: token });
+      }
+      return res.status(401).send("管理者アカウントでログインしてください");
+    }
+    if (req.session) req.session.user = user;
+    return res.redirect("/admin");
+  } catch (e) {
+    const token = typeof req.csrfToken === "function" ? req.csrfToken() : "";
+    if (typeof res.render === "function") {
+      return res.status(500).render("admin/login", { error: "ログイン処理でエラーが発生しました", user: null, csrfToken: token });
+    }
+    return res.status(500).send("ログイン処理でエラーが発生しました");
+  }
+});
+// ===== 管理ログイン（最小追加）ここまで =====
+
 // metrics（既存のまま）
 const collectDefaultMetrics = prom.collectDefaultMetrics;
 collectDefaultMetrics();
@@ -126,20 +181,14 @@ app.get("/healthz", (_req, res) => res.status(200).send("ok"));
 // ready（S3自己診断 + Redis + DB の順で軽く確認。設定が無いものはスキップ）
 app.get("/readyz", async (_req, res) => {
   try {
-    // 既存：S3自己診断（実装済み）
     await selfCheck();
-
-    // Redis が設定されていれば ping
     if (redisClient) {
       const pong = await redisClient.ping();
       if (pong !== "PONG") throw new Error("redis not ready");
     }
-
-    // DB が設定されていれば簡易クエリ
     if (pgPool) {
       await pgPool.query("select 1");
     }
-
     res.status(200).send("ready");
   } catch (e) {
     console.error("[readyz] not ready:", e?.message || e);
@@ -147,24 +196,18 @@ app.get("/readyz", async (_req, res) => {
   }
 });
 
-// --- upload API (サーバ側でS3へ保存) ---（既存そのまま）
+// --- upload API ---
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
 
 app.post("/api/upload", upload.single("file"), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: "no file" });
-
-    // multer が latin1 扱いすることがあるので UTF-8 に復元
     const raw = req.file.originalname || "unnamed";
     const utf8Name = Buffer.from(raw, "latin1").toString("utf8");
     const displayName = utf8Name.normalize("NFC");
-
-    // ★重要：S3のキーはエンコードしない（UTF-8のまま）
     const objectKey = `uploads/${Date.now()}-${displayName}`;
-
     await saveBuffer(objectKey, req.file.buffer, req.file.mimetype || "application/octet-stream", displayName);
-    const url = await getSignedUrl(objectKey, 600, displayName); // 10分, 表示名も渡す（任意）
-
+    const url = await getSignedUrl(objectKey, 600, displayName);
     res.set("Content-Type", "application/json; charset=utf-8");
     res.json({ ok: true, key: objectKey, displayName, size: req.file.size, url });
   } catch (e) {
@@ -173,7 +216,6 @@ app.post("/api/upload", upload.single("file"), async (req, res) => {
   }
 });
 
-// 署名付きURLでダウンロードさせたい場合の簡易エンドポイント（既存そのまま）
 app.get("/api/download", async (req, res) => {
   try {
     const key = req.query.key;
@@ -186,27 +228,27 @@ app.get("/api/download", async (req, res) => {
   }
 });
 
-// ---- 操作画面用ルータを「後付け」マウント（存在すれば使う／無ければスキップ）
+// ---- 操作画面用ルータ（存在すれば使う／無ければスキップ）
 (function mountOptionalRouters() {
   try {
-    const authRouter = require("./routes/auth");   // 新規追加予定
+    const authRouter = require("./routes/auth");
     app.use("/", authRouter);
   } catch (e) {
     console.warn("[info] routes/auth not found (UI auth disabled)");
   }
   try {
-    const notesRouter = require("./routes/notes"); // 新規追加予定
+    const notesRouter = require("./routes/notes");
     app.use("/", notesRouter);
   } catch (e) {
     console.warn("[info] routes/notes not found (UI notes disabled)");
   }
 })();
 
-// --- Admin & Docs routes ---
+// --- Admin & Docs routes（既存のまま） ---
 try { app.use('/admin', require('./routes/admin')); } catch (e) { console.warn('[info] routes/admin not found'); }
 try { app.use('/docs',  require('./routes/docs'));  } catch (e) { console.warn('[info] routes/docs not found');  }
 
-// フォールバック: public/index.html が無い場合のプレーン表示（既存のまま）
+// フォールバック
 app.get("/", (_req, res) => res.send("EduNotes backend is running."));
 
 app.listen(PORT, () => {
