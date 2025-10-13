@@ -742,3 +742,40 @@
     group: edunotes
     mode: "0644"
   notify: restart edunotes
+
+# roles/web/tasks/main.yml の適当な位置に追加
+- name: Ensure app log directory exists
+  become: true
+  file:
+    path: /var/log/edunotes
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Install logrotate rule for edunotes
+  become: true
+  copy:
+    dest: /etc/logrotate.d/edunotes
+    content: |
+      /var/log/edunotes/app.log {
+        daily
+        rotate 7
+        compress
+        missingok
+        notifempty
+        copytruncate
+      }
+
+- name: Ensure app log directory and file exist
+  become: true
+  block:
+    - file:
+        path: /var/log/edunotes
+        state: directory
+        mode: "0755"
+    - copy:
+        dest: /var/log/edunotes/app.log
+        content: ""
+        force: no
+        mode: "0644"

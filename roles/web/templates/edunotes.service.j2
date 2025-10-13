@@ -10,21 +10,30 @@ User=edunotes
 Group=edunotes
 EnvironmentFile=-/etc/edunotes/env
 WorkingDirectory=/opt/edunotes
+
+# 事前にアップロード用ディレクトリを用意
 ExecStartPre=/usr/bin/install -d -o edunotes -g edunotes -m 0755 /var/edunotes/uploads
+
+# Node アプリ起動
 ExecStart=/usr/bin/env node server.js
 Restart=always
 RestartSec=3
-LimitNOFILE=65535
+
+# open files 上限は1回だけ明示
+LimitNOFILE=65536
+
+# 実行環境
 Environment=HOME=/home/edunotes
 Environment=NODE_ENV=production
 Environment=PORT=3000
 Environment=APP_PORT=3000
+
 ExecStartPost=/bin/sleep 3
 
-StandardOutput=journal
-StandardError=journal
-
-LimitNOFILE=65536
+# ログ: /var/log/edunotes/app.log へ追記（systemd がディレクトリ自動作成）
+LogsDirectory=edunotes
+StandardOutput=append:/var/log/edunotes/app.log
+StandardError=append:/var/log/edunotes/app.log
 
 [Install]
 WantedBy=multi-user.target

@@ -1,0 +1,52 @@
+---
+- name: Install CloudWatch Agent
+  become: true
+  apt:
+    name: amazon-cloudwatch-agent
+    state: present
+    update_cache: yes
+
+# 念のためログファイルを用意（systemdのLogsDirectoryがあるが保険）
+- name: Ensure app log dir and file exist
+  become: true
+  block:
+    - file:
+        path: /var/log/edunotes
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+    - copy:
+        dest: /var/log/edunotes/app.log
+        content: ""
+        force: no
+        mode: "0644"
+
+# テンプレートを配置
+- name: Deploy CloudWatch Agent config
+  become: true
+  template:
+    src: amazon-cloudwatch-agent.json.j2
+    dest: /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart cwagent
+
+# 設定を fetch-config で反映して起動
+- name: Apply cwagent config and start
+  become: true
+  command: >
+    /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl
+    -a fetch-config
+    -m ec2
+    -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+    -s
+  changed_when: true
+
+- name: Enable & start cwagent
+  become: true
+  systemd:
+    name: amazon-cloudwatch-agent
+    enabled: true
+    state: started
