@@ -21,6 +21,7 @@ Environment=APP_PORT=3000
 ExecStartPost=/bin/sleep 3
 
 # ← ここをファイル追記に変更
+LogsDirectory=edunotes   
 StandardOutput=append:/var/log/edunotes/app.log
 StandardError=append:/var/log/edunotes/app.log
 

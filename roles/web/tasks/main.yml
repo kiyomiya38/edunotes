@@ -766,3 +766,16 @@
         notifempty
         copytruncate
       }
+
+- name: Ensure app log directory and file exist
+  become: true
+  block:
+    - file:
+        path: /var/log/edunotes
+        state: directory
+        mode: "0755"
+    - copy:
+        dest: /var/log/edunotes/app.log
+        content: ""
+        force: no
+        mode: "0644"
