@@ -32,8 +32,8 @@ ExecStartPost=/bin/sleep 3
 
 # ログ: /var/log/edunotes/app.log へ追記（systemd がディレクトリ自動作成）
 LogsDirectory=edunotes
-StandardOutput=append:/var/log/edunotes/app.log
-StandardError=append:/var/log/edunotes/app.log
+StandardOutput=journal
+StandardError=journal
 
 [Install]
 WantedBy=multi-user.target
