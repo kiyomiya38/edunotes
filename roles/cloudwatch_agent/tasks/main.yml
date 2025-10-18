@@ -1,12 +1,14 @@
 ---
+# CloudWatch Agent をインストール
 - name: Install CloudWatch Agent
   become: true
   apt:
     name: amazon-cloudwatch-agent
     state: present
     update_cache: yes
+  register: cwagent_pkg
 
-# 念のためログファイルを用意（systemdのLogsDirectoryがあるが保険）
+# （保険）アプリログのファイルを用意
 - name: Ensure app log dir and file exist
   become: true
   block:
@@ -22,7 +24,17 @@
         force: no
         mode: "0644"
 
-# テンプレートを配置
+# 設定ディレクトリの存在を保証（古いAMI等の差異に備える）
+- name: Ensure CWAgent config dir exists
+  become: true
+  file:
+    path: /opt/aws/amazon-cloudwatch-agent/etc
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+# JSON テンプレートを正しいパスに配置
 - name: Deploy CloudWatch Agent config
   become: true
   template:
@@ -33,17 +45,18 @@
     mode: "0644"
   notify: Restart cwagent
 
-# 設定を fetch-config で反映して起動
-- name: Apply cwagent config and start
+# 初回インストール直後は必ず fetch-config を実行（idempotent）
+- name: Apply CWAgent config on first install
   become: true
   command: >
     /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl
-    -a fetch-config
-    -m ec2
+    -a fetch-config -m ec2
     -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
     -s
+  when: cwagent_pkg.changed
   changed_when: true
 
+# サービスを有効化＆起動（handler後も起動済みを担保）
 - name: Enable & start cwagent
   become: true
   systemd:
