@@ -10,3 +10,4 @@
     - role: common
     - role: web
     - role: cloudwatch_agent
+    - role: xray_daemon 

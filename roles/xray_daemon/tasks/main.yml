@@ -1,0 +1,73 @@
+---
+# Ubuntu 24.04 向け：公式バイナリ配置 + systemd 管理
+- name: Ensure deps for xray
+  become: true
+  apt:
+    name:
+      - unzip
+      - curl
+    update_cache: yes
+    state: present
+
+- name: Create xray install dir
+  become: true
+  file:
+    path: /opt/xray
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+# リージョン固定の配布S3（可用な安定URL）
+- name: Download xray-daemon bundle
+  become: true
+  get_url:
+    url: "https://s3.amazonaws.com/aws-xray-assets.us-east-1/xray-daemon/aws-xray-daemon-linux-3.x.zip"
+    dest: /opt/xray/aws-xray-daemon.zip
+    mode: "0644"
+
+- name: Unarchive xray-daemon
+  become: true
+  unarchive:
+    src: /opt/xray/aws-xray-daemon.zip
+    dest: /opt/xray
+    remote_src: true
+    creates: /opt/xray/xray
+
+- name: Install xray binary
+  become: true
+  copy:
+    src: /opt/xray/xray
+    dest: /usr/local/bin/xray
+    mode: "0755"
+    remote_src: true
+
+- name: Deploy systemd unit
+  become: true
+  copy:
+    dest: /etc/systemd/system/xray.service
+    mode: "0644"
+    content: |
+      [Unit]
+      Description=AWS X-Ray Daemon
+      After=network.target
+
+      [Service]
+      ExecStart=/usr/local/bin/xray -o
+      Restart=always
+      User=root
+
+      [Install]
+      WantedBy=multi-user.target
+
+- name: systemd daemon-reload
+  become: true
+  systemd:
+    daemon_reload: true
+
+- name: Enable & Start xray
+  become: true
+  systemd:
+    name: xray
+    enabled: true
+    state: started

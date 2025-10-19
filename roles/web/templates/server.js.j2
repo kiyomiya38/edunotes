@@ -1,5 +1,9 @@
 // server.js.j2
+const AWSXRay = require('aws-xray-sdk');
+AWSXRay.captureHTTPsGlobal(require('http'));
+AWSXRay.capturePromise();
 const express = require("express");
+app.use(AWSXRay.express.openSegment('EduNotesApp')); 
 const morgan = require("morgan");
 const multer = require("multer");
 const prom = require("prom-client");
@@ -14,7 +18,7 @@ const session = require("express-session");
 const RedisStore = require("connect-redis").default; // ★v7系は .default
 const IORedis = require("ioredis");
 const fs = require("fs");                 // ★ 追加（TLS CA 読み込み用）
-const { Pool } = require("pg");
+const { Pool } = AWSXRay.capturePostgres(require("pg"));
 
 // --- basic app setup ---
 const app = express();
@@ -247,6 +251,7 @@ app.get("/api/download", async (req, res) => {
 // --- Admin & Docs routes（既存のまま） ---
 try { app.use('/admin', require('./routes/admin')); } catch (e) { console.warn('[info] routes/admin not found'); }
 try { app.use('/docs',  require('./routes/docs'));  } catch (e) { console.warn('[info] routes/docs not found');  }
+app.use(AWSXRay.express.closeSegment());
 
 // フォールバック
 app.get("/", (_req, res) => res.send("EduNotes backend is running."));
