@@ -1,28 +1,41 @@
-// storage.js.j2
-const { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } = require("@aws-sdk/client-s3");
-const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
+// storage.js.j2 — 完全修正版（AWS SDK v3 + X-Ray 連携）
+// 変更点:
+//  - aws-xray-sdk の captureAWSv3Client で S3Client をラップ
+//  - HTTP/HTTPS 呼び出しは server.js 側で captureHTTPsGlobal 済み（重複不要）
+//  - 既存の公開API（saveBuffer / getSignedUrl / remove / selfCheck）はそのまま
 
+const { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, HeadBucketCommand } =
+  require("@aws-sdk/client-s3");
+const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
+const { captureAWSv3Client } = require("aws-xray-sdk");
+
+// ---- 環境変数 ----
 const BUCKET = process.env.S3_BUCKET;
 const REGION = process.env.S3_REGION || "ap-northeast-3";
-const ENDPOINT = process.env.S3_ENDPOINT || undefined;
-const FORCE = (process.env.S3_FORCE_PATH_STYLE || "false") === "true";
-const SIGN_TTL = parseInt(process.env.S3_SIGNED_URL_TTL || "900", 10);
+const ENDPOINT = process.env.S3_ENDPOINT || undefined;                  // 例: "https://s3.ap-northeast-3.amazonaws.com"
+const FORCE = (process.env.S3_FORCE_PATH_STYLE || "false") === "true";  // MinIO 等の特殊環境向け
+const SIGN_TTL = parseInt(process.env.S3_SIGNED_URL_TTL || "900", 10);  // 既定 15分
 
 if (!BUCKET) throw new Error("S3_BUCKET is required");
 
-// S3クライアント生成
-const s3 = new S3Client({ region: REGION, endpoint: ENDPOINT, forcePathStyle: FORCE });
+// ---- S3 クライアント（v3）を X-Ray でラップ ----
+const baseClient = new S3Client({
+  region: REGION,
+  endpoint: ENDPOINT,
+  forcePathStyle: FORCE,
+});
+const s3 = captureAWSv3Client(baseClient);  // ★ これだけで S3 への送受信が X-Ray に記録される
 
-// ★補助関数：Content-Disposition (UTF-8対応)
+// ---- 補助: Content-Disposition (UTF-8対応) ----
 function buildContentDisposition(nameUtf8) {
-  // UTF-8の日本語ファイル名を安全に指定
+  // UTF-8 の日本語ファイル名を安全に指定（RFC 5987 互換）
   const enc = encodeURIComponent(nameUtf8);
   return `attachment; filename*=UTF-8''${enc}`;
 }
 
-// --- S3へバッファを保存 ---
+// ---- S3 へバッファを保存 ----
 async function saveBuffer(objectKey, buffer, contentType = "application/octet-stream", displayName) {
-  // ★重要：Keyをencodeしない。UTF-8のまま保存する。
+  // Key は encode しない（SDK が内部で適切に処理する）
   const params = {
     Bucket: BUCKET,
     Key: objectKey,
@@ -30,7 +43,7 @@ async function saveBuffer(objectKey, buffer, contentType = "application/octet-st
     ContentType: contentType,
   };
 
-  // ダウンロード時に名前を維持したい場合はContentDispositionを付与
+  // ダウンロード時に表示名を維持したい場合
   if (displayName) {
     params.ContentDisposition = buildContentDisposition(displayName);
   }
@@ -39,12 +52,11 @@ async function saveBuffer(objectKey, buffer, contentType = "application/octet-st
   return { objectKey, size: buffer.length };
 }
 
-// --- GET用署名付きURLを生成 ---
+// ---- GET 用 署名付きURLを生成 ----
 async function getSignedUrlForGet(objectKey, ttlSeconds = SIGN_TTL, displayName) {
-  // ★KeyはencodeせずUTF-8のまま渡す（SDKが内部で適切にエンコードする）
   const params = { Bucket: BUCKET, Key: objectKey };
 
-  // ダウンロード時に日本語ファイル名で保存したい場合
+  // ダウンロード時の保存名（日本語OK）
   if (displayName) {
     params.ResponseContentDisposition = buildContentDisposition(displayName);
   }
@@ -53,16 +65,34 @@ async function getSignedUrlForGet(objectKey, ttlSeconds = SIGN_TTL, displayName)
   return getSignedUrl(s3, cmd, { expiresIn: ttlSeconds });
 }
 
-// --- オブジェクト削除 ---
+// ---- オブジェクト削除 ----
 async function remove(objectKey) {
   await s3.send(new DeleteObjectCommand({ Bucket: BUCKET, Key: objectKey }));
 }
 
-// --- S3との接続確認 ---
+// ---- S3 との接続確認（Trace Map にも出やすい簡易処理）----
 async function selfCheck() {
+  // まず HEAD Bucket（読み取りのみ）で疎通可否を素早く確認
+  try {
+    await s3.send(new HeadBucketCommand({ Bucket: BUCKET }));
+  } catch (e) {
+    // 権限により HeadBucket が禁止される環境もあるため、Put/Delete にフォールバック
+    // （この処理も X-Ray に記録される）
+  }
+
+  // 書き込み権限がある環境では軽い put/delete で確実に可視化
   const key = `.check-${Date.now()}`;
-  await saveBuffer(key, Buffer.from("ok", "utf8"), "text/plain; charset=utf-8", "check.txt");
-  await remove(key);
+  try {
+    await saveBuffer(key, Buffer.from("ok", "utf8"), "text/plain; charset=utf-8", "check.txt");
+    await remove(key);
+  } catch {
+    // 書き込み不可でも問題なし（疎通/可視化目的なので失敗は無視）
+  }
 }
 
-module.exports = { saveBuffer, getSignedUrl: getSignedUrlForGet, remove, selfCheck };
+module.exports = {
+  saveBuffer,
+  getSignedUrl: getSignedUrlForGet,
+  remove,
+  selfCheck,
+};

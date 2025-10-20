@@ -1,8 +1,9 @@
-// server.js.j2  — 修正完全版（X-Ray対応 / 順序と重複を是正）
+// server.js.j2 — 修正完全版（X-Ray順序是正＋DB/S3診断エンドポイント付き）
 
 // --- AWS X-Ray (最優先で初期化) ---
 const AWSXRay = require('aws-xray-sdk');
 AWSXRay.captureHTTPsGlobal(require('http'));
+AWSXRay.captureHTTPsGlobal(require('https')); // S3 などの HTTPS 呼び出しも捕捉
 AWSXRay.capturePromise();
 
 // --- 標準/外部モジュール ---
@@ -21,7 +22,7 @@ const IORedis = require("ioredis");
 const pgWrapped = AWSXRay.capturePostgres(require("pg"));
 const { Pool } = pgWrapped;
 
-// --- 既存のS3ヘルパ（そのまま） ---
+// --- 既存のS3ヘルパ（そのまま利用） ---
 const { saveBuffer, getSignedUrl, remove, selfCheck } = require("./storage");
 
 // --- アプリ本体 ---
@@ -73,7 +74,8 @@ if (sessionEnabled) {
       p === "/metrics" ||
       p === "/healthz" ||
       p === "/readyz" ||
-      p === "/favicon.ico"
+      p === "/favicon.ico" ||
+      p.startsWith("/diag/") // 診断系は除外
     ) return next();
     return csrfMiddleware(req, res, next);
   });
@@ -102,7 +104,7 @@ try {
   console.warn("[warn] Postgres not configured:", e?.message || e);
 }
 
-// --- リクエストスコープ共有（ルータで参照可） ---
+// --- リクエストスコープ共有（ルータから参照可） ---
 app.use((req, _res, next) => {
   req.redis = redisClient;
   req.db = pgPool;
@@ -180,7 +182,7 @@ app.get("/metrics", async (_req, res) => {
 app.get("/healthz", (_req, res) => res.status(200).send("ok"));
 app.get("/readyz", async (_req, res) => {
   try {
-    await selfCheck();
+    await selfCheck(); // S3 の自己診断（内部でS3を叩けばX-Rayに出ます）
     if (redisClient) {
       const pong = await redisClient.ping();
       if (pong !== "PONG") throw new Error("redis not ready");
@@ -192,6 +194,29 @@ app.get("/readyz", async (_req, res) => {
   } catch (e) {
     console.error("[readyz] not ready:", e?.message || e);
     res.status(500).send("not ready");
+  }
+});
+
+// --- DB/S3 診断（Trace Map に確実にノードを出すための軽量エンドポイント） ---
+app.get("/diag/db", async (_req, res) => {
+  try {
+    if (!pgPool) throw new Error("pgPool not ready");
+    const r = await pgPool.query("select 1 as ok");
+    res.json({ ok: true, result: r.rows[0] });
+  } catch (e) {
+    console.error("[diag/db]", e);
+    res.status(500).json({ ok: false, error: String(e) });
+  }
+});
+
+app.get("/diag/s3", async (_req, res) => {
+  try {
+    // 既存の storage.js の getSignedUrl を利用（内部で S3 を呼べばノードが出る）
+    const url = await getSignedUrl("healthcheck.txt", 60);
+    res.json({ ok: true, sampleUrl: url });
+  } catch (e) {
+    console.error("[diag/s3]", e);
+    res.status(500).json({ ok: false, error: String(e) });
   }
 });
 
