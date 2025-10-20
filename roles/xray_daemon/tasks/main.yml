@@ -1,5 +1,6 @@
 ---
-# Ubuntu 24.04 向け：公式バイナリ配置 + systemd 管理
+# Ubuntu 24.04 向け：公式バイナリ配置 + systemd 管理（冪等）
+
 - name: Ensure deps for xray
   become: true
   apt:
@@ -18,7 +19,7 @@
     group: root
     mode: "0755"
 
-# リージョン固定の配布S3（可用な安定URL）
+# 安定配布の公式ZIP（us-east-1ホストの公開S3）
 - name: Download xray-daemon bundle
   become: true
   get_url:
@@ -42,6 +43,7 @@
     mode: "0755"
     remote_src: true
 
+# systemd ユニット：大阪リージョンを明示（aws_region 変数があれば優先）
 - name: Deploy systemd unit
   become: true
   copy:
@@ -50,24 +52,36 @@
     content: |
       [Unit]
       Description=AWS X-Ray Daemon
-      After=network.target
+      Wants=network-online.target
+      After=network-online.target
 
       [Service]
-      ExecStart=/usr/local/bin/xray -o
+      # -o: ログを標準出力へ
+      # -r: リージョン（既定 ap-northeast-3、変数 aws_region で上書き可）
+      ExecStart=/usr/local/bin/xray -o -r {{ aws_region | default('ap-northeast-3') }} -c /opt/xray/cfg.yaml
       Restart=always
+      RestartSec=2s
       User=root
 
       [Install]
       WantedBy=multi-user.target
+  register: xray_unit
 
 - name: systemd daemon-reload
   become: true
   systemd:
     daemon_reload: true
+  when: xray_unit is changed
 
-- name: Enable & Start xray
+- name: Enable xray service
   become: true
   systemd:
     name: xray
     enabled: true
-    state: started
+
+- name: Start/Restart xray if unit or binary changed
+  become: true
+  systemd:
+    name: xray
+    state: restarted
+  when: xray_unit is changed
