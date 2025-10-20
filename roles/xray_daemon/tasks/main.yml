@@ -7,6 +7,7 @@
     name:
       - unzip
       - curl
+      - ca-certificates
     update_cache: yes
     state: present
 
@@ -42,8 +43,9 @@
     dest: /usr/local/bin/xray
     mode: "0755"
     remote_src: true
+  register: xray_bin
 
-# systemd ユニット：大阪リージョンを明示（aws_region 変数があれば優先）
+# systemd ユニット：リージョンを環境変数で固定 + local-mode で確実起動
 - name: Deploy systemd unit
   become: true
   copy:
@@ -56,9 +58,12 @@
       After=network-online.target
 
       [Service]
-      # -o: ログを標準出力へ
-      # -r: リージョン（既定 ap-northeast-3、変数 aws_region で上書き可）
-      ExecStart=/usr/local/bin/xray -o -r {{ aws_region | default('ap-northeast-3') }} -c /opt/xray/cfg.yaml
+      # リージョンは環境変数で固定（Ansible 変数 aws_region があれば後でテンプレート置換）
+      Environment=AWS_REGION={{ aws_region | default('ap-northeast-3') }}
+      Environment=AWS_DEFAULT_REGION={{ aws_region | default('ap-northeast-3') }}
+
+      # -o: 標準出力へログ, --region: 明示, --local-mode: メタデータ非依存で確実に起動
+      ExecStart=/usr/local/bin/xray -o --region ${AWS_REGION} --local-mode
       Restart=always
       RestartSec=2s
       User=root
@@ -67,7 +72,7 @@
       WantedBy=multi-user.target
   register: xray_unit
 
-- name: systemd daemon-reload
+- name: systemd daemon-reload (only when unit changed)
   become: true
   systemd:
     daemon_reload: true
@@ -79,9 +84,9 @@
     name: xray
     enabled: true
 
-- name: Start/Restart xray if unit or binary changed
+- name: Start/Restart xray when needed
   become: true
   systemd:
     name: xray
     state: restarted
-  when: xray_unit is changed
+  when: xray_unit is changed or xray_bin is changed
