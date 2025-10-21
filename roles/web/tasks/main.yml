@@ -380,6 +380,8 @@
   loop:
     - admin
     - docs
+    - courses
+    - vod
 
 # --- Docs ディレクトリ（/opt/edunotes/docs） ---
 - name: Ensure docs directory exists
