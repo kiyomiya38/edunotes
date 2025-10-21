@@ -10,37 +10,53 @@ const getCsrf = (req) => {
   }
   return null;
 };
+const pickDest = (req, bodyNext, fallback="/courses") => {
+  const qNext = (req.query?.next || "").trim();
+  const sNext = (req.session?.returnTo || "").trim();
+  const bNext = (bodyNext || "").trim();
+  const dest = bNext || qNext || sNext || fallback;
+  if (req.session) delete req.session.returnTo;
+  return dest;
+};
 
 // ---- guards ---------------------------------------------------
 function requireGuest(req, res, next) {
   const user = getUser(req);
-  if (user) return res.redirect("/notes");
+  if (user) {
+    // すでにログイン済みなら、戻り先（or /courses）へ
+    return res.redirect(pickDest(req, null, "/courses"));
+  }
   return next();
 }
 
 function requireAuth(req, res, next) {
   const user = getUser(req);
-  if (!user) return res.redirect("/login");
+  if (!user) {
+    if (req.session) req.session.returnTo = req.originalUrl || "/courses";
+    return res.redirect("/login");
+  }
   res.locals.currentUser = user;
   return next();
 }
 
 // ---- routes: signup -------------------------------------------
-r.get("/signup", requireGuest, (req, res) =>
-  res.render("signup", { csrfToken: getCsrf(req), error: null, user: null })
-);
+r.get("/signup", requireGuest, (req, res) => {
+  const next = (req.query?.next || req.session?.returnTo || "/courses");
+  if (req.session) req.session.returnTo = next;
+  return res.render("signup", { csrfToken: getCsrf(req), error: null, user: null, next });
+});
 
 r.post("/signup", requireGuest, async (req, res) => {
-  const { email, password } = req.body || {};
+  const { email, password, next: bodyNext } = req.body || {};
   if (!email || !password) {
-    return res.render("signup", { csrfToken: getCsrf(req), error: "必須項目", user: null });
+    return res.render("signup", { csrfToken: getCsrf(req), error: "必須項目", user: null, next: bodyNext || "/" });
   }
 
   try {
     const hashed = await bcrypt.hash(password, 12);
     const db = req.db;
     if (!db) {
-      return res.status(500).render("signup", { csrfToken: getCsrf(req), error: "DB未接続", user: null });
+      return res.status(500).render("signup", { csrfToken: getCsrf(req), error: "DB未接続", user: null, next: bodyNext || "/" });
     }
 
     const { rows } = await db.query(
@@ -49,36 +65,38 @@ r.post("/signup", requireGuest, async (req, res) => {
     );
 
     req.session.user = rows[0];
-    return res.redirect("/notes");
+    return res.redirect(pickDest(req, bodyNext, "/courses"));
   } catch (_e) {
-    return res.render("signup", { csrfToken: getCsrf(req), error: "登録失敗（重複？）", user: null });
+    return res.render("signup", { csrfToken: getCsrf(req), error: "登録失敗（重複？）", user: null, next: bodyNext || "/" });
   }
 });
 
 // ---- routes: login --------------------------------------------
-r.get("/login", requireGuest, (req, res) =>
-  res.render("login", { csrfToken: getCsrf(req), error: null, user: null })
-);
+r.get("/login", requireGuest, (req, res) => {
+  const next = (req.query?.next || req.session?.returnTo || "/courses");
+  if (req.session) req.session.returnTo = next;
+  return res.render("login", { csrfToken: getCsrf(req), error: null, user: null, next });
+});
 
 r.post("/login", requireGuest, async (req, res) => {
-  const { email, password } = req.body || {};
+  const { email, password, next: bodyNext } = req.body || {};
   const db = req.db;
   if (!db) {
-    return res.status(500).render("login", { csrfToken: getCsrf(req), error: "DB未接続", user: null });
+    return res.status(500).render("login", { csrfToken: getCsrf(req), error: "DB未接続", user: null, next: bodyNext || "/" });
   }
 
   const { rows } = await db.query("select * from users where email=$1", [email]);
   if (!rows[0]) {
-    return res.render("login", { csrfToken: getCsrf(req), error: "認証失敗", user: null });
+    return res.render("login", { csrfToken: getCsrf(req), error: "認証失敗", user: null, next: bodyNext || "/" });
   }
 
   const ok = await bcrypt.compare(password, rows[0].password_hash);
   if (!ok) {
-    return res.render("login", { csrfToken: getCsrf(req), error: "認証失敗", user: null });
+    return res.render("login", { csrfToken: getCsrf(req), error: "認証失敗", user: null, next: bodyNext || "/" });
   }
 
   req.session.user = { id: rows[0].id, email: rows[0].email, role: rows[0].role };
-  return res.redirect("/notes");
+  return res.redirect(pickDest(req, bodyNext, "/courses"));
 });
 
 // ---- routes: logout -------------------------------------------

@@ -2,10 +2,15 @@
 const express = require('express');
 const router = express.Router();
 
-function needLogin(req,res,next){ return (req.isAuthenticated?.()) ? next() : res.redirect('/login'); }
+function needLogin(req, res, next) {
+  const authed = typeof req.isAuthenticated === 'function' ? req.isAuthenticated() : !!req.user || !!req.session?.user;
+  if (authed) return next();
+  if (req.session) req.session.returnTo = req.originalUrl || '/vod';
+  return res.redirect('/login');
+}
 
-router.get('/vod', needLogin, async (req,res)=>{
-  // TODO: ここで動画レッスン一覧をDBから取得（MVPは空配列でOK）
+router.get('/vod', needLogin, async (req, res) => {
+  // TODO: 動画レッスン一覧（MVPは空配列でOK）
   res.render('vod/index', { title: 'Lecture Videos', items: [] });
 });
 

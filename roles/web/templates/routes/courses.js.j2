@@ -2,10 +2,16 @@
 const express = require('express');
 const router = express.Router();
 
-function needLogin(req,res,next){ return (req.isAuthenticated?.()) ? next() : res.redirect('/login'); }
+// 未ログインなら /login へ。その際に「元のURL」を保存しておく
+function needLogin(req, res, next) {
+  const authed = typeof req.isAuthenticated === 'function' ? req.isAuthenticated() : !!req.user || !!req.session?.user;
+  if (authed) return next();
+  if (req.session) req.session.returnTo = req.originalUrl || '/courses';
+  return res.redirect('/login');
+}
 
-router.get('/courses', needLogin, async (req,res)=>{
-  // TODO: DBからcourses一覧を取得（MVPは空配列でOK）
+router.get('/courses', needLogin, async (req, res) => {
+  // TODO: DBから courses を取得（MVPは空配列でOK）
   res.render('courses/index', { title: 'Courses', courses: [] });
 });
 
