@@ -256,8 +256,15 @@ app.get("/api/download", async (req, res) => {
 (function mountOptionalRouters() {
   try { app.use("/", require("./routes/auth")); }
   catch (e) { console.warn("[info] routes/auth not found (UI auth disabled)"); }
+
   try { app.use("/", require("./routes/notes")); }
   catch (e) { console.warn("[info] routes/notes not found (UI notes disabled)"); }
+
+  try { app.use("/", require("./routes/courses")); }
+  catch (e) { console.warn("[info] routes/courses not found (UI courses disabled)"); }
+
+  try { app.use("/", require("./routes/vod")); }
+  catch (e) { console.warn("[info] routes/vod not found (UI vod disabled)"); }
 })();
 
 // --- Admin & Docs routes（既存のまま） ---

@@ -1,0 +1,12 @@
+// roles/web/templates/routes/vod.js.j2
+const express = require('express');
+const router = express.Router();
+
+function needLogin(req,res,next){ return (req.isAuthenticated?.()) ? next() : res.redirect('/login'); }
+
+router.get('/vod', needLogin, async (req,res)=>{
+  // TODO: ここで動画レッスン一覧をDBから取得（MVPは空配列でOK）
+  res.render('vod/index', { title: 'Lecture Videos', items: [] });
+});
+
+module.exports = router;

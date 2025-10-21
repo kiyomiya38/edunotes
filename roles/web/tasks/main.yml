@@ -413,7 +413,7 @@
     owner: edunotes
     group: edunotes
     mode: "0644"
-  loop: [admin.js, docs.js]
+  loop: [admin.js, docs.js, courses.js, vod.js]
   notify: Restart edunotes
 
 - name: Ship admin/docs views
@@ -427,6 +427,8 @@
     - { src: "admin/index.ejs.j2", dest: "admin/index.ejs" }
     - { src: "docs/index.ejs.j2",  dest: "docs/index.ejs"  }
     - { src: "docs/show.ejs.j2",   dest: "docs/show.ejs"   }
+    - { src: "courses/index.ejs.j2", dest: "courses/index.ejs" }   # ← 追加
+    - { src: "vod/index.ejs.j2",     dest: "vod/index.ejs" }       # ← 追加
   notify: Restart edunotes
 
 # --- markdown-it / gray-matter をインストール（S3経路用）---

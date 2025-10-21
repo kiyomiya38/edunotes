@@ -1,0 +1,12 @@
+// roles/web/templates/routes/courses.js.j2
+const express = require('express');
+const router = express.Router();
+
+function needLogin(req,res,next){ return (req.isAuthenticated?.()) ? next() : res.redirect('/login'); }
+
+router.get('/courses', needLogin, async (req,res)=>{
+  // TODO: DBからcourses一覧を取得（MVPは空配列でOK）
+  res.render('courses/index', { title: 'Courses', courses: [] });
+});
+
+module.exports = router;
