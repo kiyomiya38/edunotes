@@ -282,6 +282,14 @@ try { app.use('/docs',  require('./routes/docs'));  } catch (e) { console.warn('
 // --- フォールバック（404 などの前に） ---
 app.get("/", (_req, res) => res.send("EduNotes backend is running."));
 
+// ★ CSRF 明示エラーハンドラ（Nginx/ALBの汎用403と区別する）
+app.use((err, req, res, next) => {
+  if (err && err.code === 'EBADCSRFTOKEN') {
+    return res.status(403).send('EBADCSRFTOKEN');
+  }
+  return next(err);
+});
+
 // ★ すべてのルートの後で X-Ray を閉じる（必ず最後の use）
 app.use(AWSXRay.express.closeSegment());
 
