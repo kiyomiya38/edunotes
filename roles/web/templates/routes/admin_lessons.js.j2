@@ -5,7 +5,24 @@ const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 
 function requireAdmin(req, res, next) {
-  if (req.session && req.session.user && req.session.user.role === 'admin') return next();
+  // できるだけ多くの既存実装にフィットさせるために両方見る
+  const u = (req.user) || (req.session && req.session.user) || null;
+
+  // 役割判定を緩やかに（必要なら editor も許可）
+  const role = u && (u.role || u.role_name || (u.isAdmin ? 'admin' : null));
+  const isAdmin  = typeof role === 'string' && role.toLowerCase() === 'admin';
+  const isEditor = typeof role === 'string' && role.toLowerCase() === 'editor'; // editor もOKにするならこの行を有効化
+
+  if (isAdmin /* || isEditor */) {
+    return next();
+  }
+
+  // ログイン自体はしているか？（必要なら isAuthenticated も利用）
+  if (typeof req.isAuthenticated === 'function' && req.isAuthenticated() && !u) {
+    // 認証はあるが user を拾えないケースへの保険
+    return res.status(403).send('Forbidden');
+  }
+
   return res.status(403).send('Forbidden');
 }
 
