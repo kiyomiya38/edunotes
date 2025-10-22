@@ -2,16 +2,53 @@
 <html>
 <head>
   <meta charset="utf-8"/>
-  <title><%= title %></title>
+  <title><%= title || "管理ダッシュボード" %></title>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <style>body{font-family:system-ui,-apple-system,Segoe UI,Roboto;max-width:960px;margin:24px auto;padding:0 16px}</style>
+  <style>
+    body {
+      font-family: system-ui,-apple-system,Segoe UI,Roboto;
+      max-width: 960px;
+      margin: 24px auto;
+      padding: 0 16px;
+      line-height: 1.6;
+    }
+    h1 { margin-bottom: 0.5em; }
+    ul { list-style-type: disc; padding-left: 1.5em; }
+    section { margin-top: 2em; }
+    a { color: #0066cc; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+  </style>
 </head>
 <body>
   <h1>管理ダッシュボード</h1>
+
   <ul>
     <li>ユーザー数: <strong><%= stats.users %></strong></li>
     <li>ノート数: <strong><%= stats.notes %></strong></li>
   </ul>
+
   <p><a href="/docs">→ 受講マニュアル (/docs)</a></p>
+
+  <section>
+    <h2>教材管理</h2>
+    <ul>
+      <li><a href="/courses">📘 教材テキスト一覧</a>（受講者向け公開ページ）</li>
+      <li><a href="/vod">🎥 講義動画一覧</a>（受講者向け公開ページ）</li>
+      <li><a href="/uploader.html">⬆️ 講義動画アップロード（管理者）</a></li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>運用メモ</h2>
+    <ul>
+      <li>テキスト教材の追加：
+        <br/>ブラウザの開発者ツール Console で
+        <code>fetch('/admin/lessons', ...)</code> を利用して新規作成可能。
+      </li>
+      <li>動画教材の追加：
+        <br/><a href="/uploader.html">uploader.html</a> から事前署名URLを取得してS3直アップロード後に公開設定。
+      </li>
+    </ul>
+  </section>
 </body>
 </html>
