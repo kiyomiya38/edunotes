@@ -46,3 +46,32 @@ CREATE TABLE IF NOT EXISTS audit_logs (
   detail  JSONB NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- === Lessons (text / video) ==========================================
+CREATE TABLE IF NOT EXISTS lessons (
+  id          BIGSERIAL PRIMARY KEY,
+  title       TEXT NOT NULL,
+  slug        TEXT UNIQUE NOT NULL,
+  type        TEXT NOT NULL CHECK (type IN ('text','video')),
+  published   BOOLEAN NOT NULL DEFAULT FALSE,
+  visibility  TEXT NOT NULL DEFAULT 'private', -- 'private' | 'public' | 'enrolled'
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS lesson_texts (
+  lesson_id   BIGINT PRIMARY KEY REFERENCES lessons(id) ON DELETE CASCADE,
+  body_md     TEXT NOT NULL,
+  version     INTEGER NOT NULL DEFAULT 1,
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS lesson_videos (
+  lesson_id    BIGINT PRIMARY KEY REFERENCES lessons(id) ON DELETE CASCADE,
+  s3_key_mp4   TEXT,
+  duration_sec INTEGER,
+  size_bytes   BIGINT,
+  thumb_s3_key TEXT,
+  status       TEXT NOT NULL DEFAULT 'pending', -- pending|ready|failed
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);

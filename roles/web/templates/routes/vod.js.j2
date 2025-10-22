@@ -9,9 +9,34 @@ function needLogin(req, res, next) {
   return res.redirect('/login');
 }
 
+// 一覧: 公開・準備完了の動画のみ
 router.get('/vod', needLogin, async (req, res) => {
-  // TODO: 動画レッスン一覧（MVPは空配列でOK）
-  res.render('vod/index', { title: 'Lecture Videos', items: [] });
+  const db = req.app.get('db');
+  const { rows } = await db.query(
+    `SELECT l.id, l.title, v.duration_sec
+     FROM lessons l JOIN lesson_videos v ON v.lesson_id=l.id
+     WHERE l.type='video' AND l.published=true AND v.status='ready'
+     ORDER BY l.id DESC`
+  );
+  const items = rows.map(r => ({ id: r.id, title: r.title, duration: r.duration_sec ? `${r.duration_sec}s` : '' }));
+  res.render('vod/index', { title: 'Lecture Videos', items });
+});
+
+// 動画詳細: 署名URLを発行して埋め込み再生
+router.get('/vod/:id', needLogin, async (req, res) => {
+  // 署名URLは別APIで返す実装でもよいが、ここで直に生成してテンプレへ渡す
+  const db = req.app.get('db');
+  const { rows } = await db.query(
+    `SELECT l.title, v.s3_key_mp4
+     FROM lessons l JOIN lesson_videos v ON v.lesson_id=l.id
+     WHERE l.id=$1 AND l.type='video' AND l.published=true AND v.status='ready'`, [req.params.id]
+  );
+  if (!rows.length) return res.status(404).send('Not found');
+  const { S3Client, GetObjectCommand } = require('@aws-sdk/client-s3');
+  const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
+  const s3 = new S3Client({ region: process.env.S3_REGION });
+  const url = await getSignedUrl(s3, new GetObjectCommand({ Bucket: process.env.S3_BUCKET, Key: rows[0].s3_key_mp4 }), { expiresIn: 60 * 5 });
+  res.render('vod/show', { title: rows[0].title, url });
 });
 
 module.exports = router;
