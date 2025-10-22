@@ -192,9 +192,9 @@
         // 1) レッスン作成
         const { id } = await postJSON('/admin/lessons', { title, slug, type:'text' });
         // 2) 本文保存
-        await putJSON(`/admin/lessons/${id}/text`, { body_md });
+        await postJSON(`/admin/lessons/${id}/text/save`, { body_md });
         // 3) 公開
-        if (pub) await patchJSON(`/admin/lessons/${id}`, { published:true, visibility:'public' });
+        if (pub) await postJSON(`/admin/lessons/${id}/publish`, { published:true, visibility:'public' });
 
         msg.className = 'ok';
         msg.textContent = `作成しました（ID: ${id}）。一覧へ移動します…`;
