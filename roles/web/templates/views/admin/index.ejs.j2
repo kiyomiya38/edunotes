@@ -4,6 +4,7 @@
   <meta charset="utf-8"/>
   <title><%= title || "管理ダッシュボード" %></title>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <meta name="csrf-token" content="<%= (typeof csrfToken !== 'undefined' ? csrfToken : (typeof csrfToken !== 'undefined' ? csrfToken : (typeof csrfToken !== 'undefined' ? csrfToken : ''))) %>">
   <style>
     body { font-family: system-ui,-apple-system,Segoe UI,Roboto; max-width: 980px; margin: 24px auto; padding: 0 16px; line-height: 1.6; }
     h1 { margin-bottom:.5rem; }
@@ -94,10 +95,12 @@
   </section>
 
   <script>
+    const CSRF = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+
     async function postJSON(url, body) {
       const r = await fetch(url, {
         method:'POST',
-        headers:{'Content-Type':'application/json'},
+        headers:{'Content-Type':'application/json','X-CSRF-Token': CSRF},
         body: JSON.stringify(body),
         credentials: 'same-origin'   // セッションクッキー送信
       });
@@ -107,7 +110,7 @@
     async function putJSON(url, body) {
       const r = await fetch(url, {
         method:'PUT',
-        headers:{'Content-Type':'application/json'},
+        headers:{'Content-Type':'application/json','X-CSRF-Token': CSRF},
         body: JSON.stringify(body),
         credentials: 'same-origin'   // セッションクッキー送信
       });
@@ -117,7 +120,7 @@
     async function patchJSON(url, body) {
       const r = await fetch(url, {
         method:'PATCH',
-        headers:{'Content-Type':'application/json'},
+        headers:{'Content-Type':'application/json','X-CSRF-Token': CSRF},
         body: JSON.stringify(body),
         credentials: 'same-origin'   // セッションクッキー送信
       });

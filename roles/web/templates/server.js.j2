@@ -79,7 +79,14 @@ if (sessionEnabled) {
     ) return next();
     return csrfMiddleware(req, res, next);
   });
-}
+  // ← 追加：ビューから参照できるよう、CSRFトークンを res.locals に入れる
+  app.use((req, res, next) => {
+    if (typeof req.csrfToken === "function") {
+      try { res.locals.csrfToken = req.csrfToken(); } catch (_) {}
+    }
+    next();
+  });
+ }
 
 // --- PostgreSQL（任意 / SSLは環境変数で制御） ---
 let pgPool = null;
@@ -269,6 +276,7 @@ app.get("/api/download", async (req, res) => {
 
 // --- Admin & Docs routes（既存のまま） ---
 try { app.use('/admin', require('./routes/admin')); } catch (e) { console.warn('[info] routes/admin not found'); }
+try { app.use('/admin', require('./routes/admin_lessons')); } catch (e) { console.warn('[info] routes/admin_lessons not found'); }
 try { app.use('/docs',  require('./routes/docs'));  } catch (e) { console.warn('[info] routes/docs not found');  }
 
 // --- フォールバック（404 などの前に） ---
