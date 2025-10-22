@@ -70,6 +70,7 @@ if (sessionEnabled) {
   app.use((req, res, next) => {
     const p = req.path || "";
     if (
+      p.startsWith("/admin/") ||   // ← 管理系は暫定で除外（まず通す）
       p.startsWith("/api/") ||
       p === "/metrics" ||
       p === "/healthz" ||
@@ -79,7 +80,7 @@ if (sessionEnabled) {
     ) return next();
     return csrfMiddleware(req, res, next);
   });
-  // ← 追加：ビューから参照できるよう、CSRFトークンを res.locals に入れる
+  // ビューから参照できるよう、CSRFトークンを res.locals に入れる
   app.use((req, res, next) => {
     if (typeof req.csrfToken === "function") {
       try { res.locals.csrfToken = req.csrfToken(); } catch (_) {}
@@ -226,6 +227,9 @@ app.get("/diag/s3", async (_req, res) => {
     res.status(500).json({ ok: false, error: String(e) });
   }
 });
+
+// ★ Node到達プローブ（CSRF除外）
+app.post('/diag/whoami', (req, res) => res.json({ ok: true, from: 'node' }));
 
 // --- Upload / Download API ---
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
