@@ -5,18 +5,24 @@
   <title><%= title || "管理ダッシュボード" %></title>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <style>
-    body {
-      font-family: system-ui,-apple-system,Segoe UI,Roboto;
-      max-width: 960px;
-      margin: 24px auto;
-      padding: 0 16px;
-      line-height: 1.6;
-    }
-    h1 { margin-bottom: 0.5em; }
-    ul { list-style-type: disc; padding-left: 1.5em; }
-    section { margin-top: 2em; }
-    a { color: #0066cc; text-decoration: none; }
-    a:hover { text-decoration: underline; }
+    body { font-family: system-ui,-apple-system,Segoe UI,Roboto; max-width: 960px; margin: 24px auto; padding: 0 16px; line-height: 1.6; }
+    h1 { margin-bottom: .5em; }
+    ul { list-style: disc; padding-left: 1.5em; }
+    a { color:#06c; text-decoration:none; } a:hover{ text-decoration:underline; }
+    section { margin-top: 2rem; }
+    form { border: 1px solid #ddd; border-radius: 8px; padding: 16px; margin-top: .75rem; }
+    form h3 { margin: 0 0 .5rem 0; }
+    label { display:block; margin:.5rem 0 .25rem; font-weight: 600; }
+    input[type=text] { width:100%; max-width:520px; padding:.5rem; border:1px solid #ccc; border-radius:6px; }
+    textarea { width:100%; min-height:140px; padding:.5rem; border:1px solid #ccc; border-radius:6px; }
+    .row { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+    .btn { display:inline-block; padding:.5rem .9rem; border:1px solid #ccc; border-radius:8px; background:#f6f7f8; cursor:pointer; }
+    .btn.primary { background:#0a66ff; color:#fff; border-color:#0a66ff; }
+    .muted { color:#666; font-size:.95rem; }
+    .ok { color:#067d00; }
+    .err { color:#c00; }
+    .hint { font-size:.9rem; color:#555; }
+    code { background:#f3f4f6; padding:.1rem .3rem; border-radius:4px; }
   </style>
 </head>
 <body>
@@ -30,25 +36,127 @@
   <p><a href="/docs">→ 受講マニュアル (/docs)</a></p>
 
   <section>
-    <h2>教材管理</h2>
+    <h2>教材管理（受講者側ページのショートカット）</h2>
     <ul>
-      <li><a href="/courses">📘 教材テキスト一覧</a>（受講者向け公開ページ）</li>
-      <li><a href="/vod">🎥 講義動画一覧</a>（受講者向け公開ページ）</li>
+      <li><a href="/courses">📘 教材テキスト一覧</a></li>
+      <li><a href="/vod">🎥 講義動画一覧</a></li>
       <li><a href="/uploader.html">⬆️ 講義動画アップロード（管理者）</a></li>
     </ul>
   </section>
 
   <section>
-    <h2>運用メモ</h2>
-    <ul>
-      <li>テキスト教材の追加：
-        <br/>ブラウザの開発者ツール Console で
-        <code>fetch('/admin/lessons', ...)</code> を利用して新規作成可能。
-      </li>
-      <li>動画教材の追加：
-        <br/><a href="/uploader.html">uploader.html</a> から事前署名URLを取得してS3直アップロード後に公開設定。
-      </li>
-    </ul>
+    <h2>新規作成（ミニフォーム）</h2>
+
+    <!-- 1) テキスト教材 -->
+    <form id="form-text">
+      <h3>📘 新規テキスト作成</h3>
+      <label for="t-title">タイトル</label>
+      <input id="t-title" type="text" placeholder="例）第1回 イントロ" required />
+
+      <label for="t-slug">スラッグ（URL識別子）</label>
+      <input id="t-slug" type="text" placeholder="例）intro-1（半角英数と - _）" required />
+
+      <label for="t-body">本文（Markdown）</label>
+      <textarea id="t-body" placeholder="# 見出し&#10;本文をここに…"></textarea>
+
+      <div class="row" style="margin-top:.5rem;">
+        <label class="row" style="font-weight:normal;">
+          <input id="t-publish" type="checkbox" checked />
+          公開する（受講者に表示）
+        </label>
+        <button class="btn primary" type="submit">作成</button>
+        <span id="t-msg" class="muted"></span>
+      </div>
+      <p class="hint">作成後、<code>/courses</code> に表示されます。</p>
+    </form>
+
+    <!-- 2) 動画レッスン -->
+    <form id="form-video">
+      <h3>🎥 新規動画レッスン作成</h3>
+      <label for="v-title">タイトル</label>
+      <input id="v-title" type="text" placeholder="例）第1回 講義動画" required />
+
+      <label for="v-slug">スラッグ（URL識別子）</label>
+      <input id="v-slug" type="text" placeholder="例）video-1" required />
+
+      <div class="row" style="margin-top:.5rem;">
+        <button class="btn primary" type="submit">レッスン枠を作成</button>
+        <span id="v-msg" class="muted"></span>
+      </div>
+      <p class="hint">作成すると「アップロード画面（/uploader.html）」へのリンクが表示されます。アップロード→<code>公開</code>すると<code>/vod</code>に出ます。</p>
+    </form>
   </section>
+
+  <script>
+    async function postJSON(url, body) {
+      const r = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+      if (!r.ok) throw new Error(await r.text());
+      return r.json();
+    }
+    async function putJSON(url, body) {
+      const r = await fetch(url, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+      if (!r.ok) throw new Error(await r.text());
+      return r.json();
+    }
+    async function patchJSON(url, body) {
+      const r = await fetch(url, { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+      if (!r.ok) throw new Error(await r.text());
+      return r.json();
+    }
+
+    // --- テキスト教材 ---
+    document.getElementById('form-text').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const msg = document.getElementById('t-msg');
+      msg.textContent = '作成中…';
+      try {
+        const title = document.getElementById('t-title').value.trim();
+        const slug  = document.getElementById('t-slug').value.trim();
+        const body  = document.getElementById('t-body').value;
+        const pub   = document.getElementById('t-publish').checked;
+
+        // 1) レッスン作成
+        const { id } = await postJSON('/admin/lessons', { title, slug, type:'text' });
+        // 2) 本文保存
+        await putJSON(`/admin/lessons/${id}/text`, { body_md: body || '# 新規テキスト' });
+        // 3) 公開設定
+        if (pub) await patchJSON(`/admin/lessons/${id}`, { published:true, visibility:'public' });
+
+        msg.className = 'ok';
+        msg.textContent = `作成しました（ID: ${id}）。一覧へ移動します…`;
+        setTimeout(()=> location.href='/courses', 600);
+      } catch (err) {
+        console.error(err);
+        msg.className = 'err';
+        msg.textContent = '作成に失敗しました：' + (err?.message || 'unknown');
+      }
+    });
+
+    // --- 動画レッスン ---
+    document.getElementById('form-video').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const msg = document.getElementById('v-msg');
+      msg.textContent = '作成中…';
+      try {
+        const title = document.getElementById('v-title').value.trim();
+        const slug  = document.getElementById('v-slug').value.trim();
+
+        // 1) レッスン作成（動画）
+        const { id } = await postJSON('/admin/lessons', { title, slug, type:'video' });
+
+        // 2) 次アクションを表示（アップロード→公開）
+        msg.className = 'ok';
+        const upl = `/uploader.html?lessonId=${encodeURIComponent(id)}`;
+        msg.innerHTML = `レッスン枠を作成しました（ID: <b>${id}</b>）。<a href="${upl}">アップロード画面を開く</a> / <a href="/vod">動画一覧を見る</a>`;
+
+        // 補助：uploader.html がクエリを読めなくても、入力欄にコピペできるよう alert も出す
+        alert('動画レッスンID: ' + id + '\\nアップロード画面: ' + upl);
+      } catch (err) {
+        console.error(err);
+        msg.className = 'err';
+        msg.textContent = '作成に失敗しました：' + (err?.message || 'unknown');
+      }
+    });
+  </script>
 </body>
 </html>
