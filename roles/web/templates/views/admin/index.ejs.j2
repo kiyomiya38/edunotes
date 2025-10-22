@@ -54,7 +54,8 @@
       <input id="t-title" type="text" placeholder="例）第1回 イントロ" required />
 
       <label for="t-slug">スラッグ（URL識別子）</label>
-      <input id="t-slug" type="text" placeholder="例）intro-1" required />
+      <!-- required を削除（任意入力） -->
+      <input id="t-slug" type="text" placeholder="例）intro-1" />
 
       <label for="t-file">Markdown ファイル（.md）</label>
       <input id="t-file" type="file" accept=".md,text/markdown,text/plain" required />
@@ -77,7 +78,8 @@
       <input id="v-title" type="text" placeholder="例）第1回 講義動画" required />
 
       <label for="v-slug">スラッグ（URL識別子）</label>
-      <input id="v-slug" type="text" placeholder="例）video-1" required />
+      <!-- required を削除（任意入力） -->
+      <input id="v-slug" type="text" placeholder="例）video-1" />
 
       <label for="v-file">動画ファイル（.mp4）</label>
       <input id="v-file" type="file" accept="video/mp4" required />
@@ -108,6 +110,42 @@
       return r.json();
     }
 
+    /* ==== 追加：スラッグ自動生成ユーティリティ & 自動補完 ==== */
+    function makeSlug(input, fallback = 'item') {
+      const base = String(input || '')
+        .normalize('NFKD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^\w\s-]/g, ' ')
+        .replace(/[_\s]+/g, '-')
+        .toLowerCase()
+        .replace(/-+/g, '-')
+        .replace(/^-+|-+$/g, '');
+      return (base || fallback).slice(0, 80);
+    }
+
+    // テキスト：タイトル/ファイルから自動補完
+    const tTitle = document.getElementById('t-title');
+    const tSlug  = document.getElementById('t-slug');
+    const tFile  = document.getElementById('t-file');
+    tTitle?.addEventListener('input', () => { if (!tSlug.value.trim()) tSlug.value = makeSlug(tTitle.value); });
+    tFile?.addEventListener('change', () => {
+      if (!tSlug.value.trim() && tFile.files[0]) {
+        tSlug.value = makeSlug(tFile.files[0].name.replace(/\.[^.]+$/, ''), 'text');
+      }
+    });
+
+    // 動画：タイトル/ファイルから自動補完
+    const vTitle = document.getElementById('v-title');
+    const vSlug  = document.getElementById('v-slug');
+    const vFile  = document.getElementById('v-file');
+    vTitle?.addEventListener('input', () => { if (!vSlug.value.trim()) vSlug.value = makeSlug(vTitle.value); });
+    vFile?.addEventListener('change', () => {
+      if (!vSlug.value.trim() && vFile.files[0]) {
+        vSlug.value = makeSlug(vFile.files[0].name.replace(/\.[^.]+$/, ''), 'video');
+      }
+    });
+    /* ==== 自動生成ここまで ==== */
+
     // ===== 1) テキスト（.md） =====
     document.getElementById('form-text').addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -117,7 +155,8 @@
 
       try {
         const title = document.getElementById('t-title').value.trim();
-        const slug  = document.getElementById('t-slug').value.trim();
+        // 空なら送信直前に自動生成（保険）
+        const slugInput = document.getElementById('t-slug').value.trim();
         const file  = document.getElementById('t-file').files[0];
         const pub   = document.getElementById('t-publish').checked;
         if (!file) throw new Error('Markdownファイルを選択してください');
@@ -129,6 +168,8 @@
           fr.onload = () => res(String(fr.result || ''));
           fr.readAsText(file, 'utf-8');
         });
+
+        const slug = slugInput || makeSlug(title || (file?.name.replace(/\.[^.]+$/, '') || 'text'));
 
         // 1) レッスン作成
         const { id } = await postJSON('/admin/lessons', { title, slug, type:'text' });
@@ -157,9 +198,11 @@
 
       try {
         const title = document.getElementById('v-title').value.trim();
-        const slug  = document.getElementById('v-slug').value.trim();
+        const slugInput = document.getElementById('v-slug').value.trim();
         const file  = document.getElementById('v-file').files[0];
         if (!file) throw new Error('動画ファイル（.mp4）を選択してください');
+
+        const slug = slugInput || makeSlug(title || (file?.name.replace(/\.[^.]+$/, '') || 'video'));
 
         // 1) レッスン枠
         const { id } = await postJSON('/admin/lessons', { title, slug, type:'video' });
@@ -187,7 +230,7 @@
           xhr.send(file);
         });
 
-        // 4) 完了通知 + 公開（duration_sec は未入力なので null、必要ならクライアントで算出して渡す）
+        // 4) 完了通知 + 公開
         await postJSON(`/admin/lessons/${id}/video/complete`, {
           s3_key: presign.key,
           size: file.size,
