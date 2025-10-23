@@ -4,7 +4,18 @@ server {
   server_name _;
 
   root /opt/edunotes/public;
-  index index.html;   # ← 静的ホーム
+  index index.html;
+
+  # ← これを追加（/api 配下は必ず Node に送る）
+  location ^~ /api/ {
+    proxy_pass         http://127.0.0.1:3000;
+    proxy_http_version 1.1;
+    proxy_set_header   Host $host;
+    proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header   X-Forwarded-Proto $scheme;
+    proxy_read_timeout 60s;
+    proxy_redirect     off;
+  }
 
   location /assets/ {
     try_files $uri =404;
@@ -12,40 +23,15 @@ server {
     expires 7d;
   }
 
-  # ヘルスチェック（ALB 用）
-  location = /healthz {
-    return 200 "ok\n";
-    add_header Content-Type text/plain;
-    access_log off;
-  }
+  location = /healthz { return 200 "ok\n"; add_header Content-Type text/plain; access_log off; }
 
-  # ── 静的ページ（あれば返す） ──
-  location = / { try_files /index.html =404; }
+  # 静的トップ
+  location = /         { try_files /index.html =404; }
   location = /index.html { try_files /index.html =404; }
-  location = /uploader { try_files /uploader.html =404; }
+  location = /uploader   { try_files /uploader.html =404; }
   location = /uploader.html { try_files /uploader.html =404; }
-  # ───────────────────────────
 
-  # ★ /api は POST/PUT/PATCH が多いので専用のプロキシ設定を明示
-  location /api/ {
-    proxy_pass         http://127.0.0.1:3000;
-    proxy_http_version 1.1;
-    proxy_set_header   Host              $host;
-    proxy_set_header   X-Real-IP         $remote_addr;
-    proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
-    proxy_set_header   X-Forwarded-Proto $scheme;
-
-    # アップロード/長処理に備えて広めに
-    client_max_body_size 100m;
-    proxy_connect_timeout 60s;
-    proxy_send_timeout    300s;
-    proxy_read_timeout    300s;
-
-    # WebSocket 等は不要なので Upgrade/Connection は付けない
-    proxy_redirect off;
-  }
-
-  # それ以外はアプリへ（/admin, /courses, /vod など）
+  # 汎用プロキシ（/api 以外）
   location / {
     proxy_pass         http://127.0.0.1:3000;
     proxy_http_version 1.1;
@@ -58,22 +44,10 @@ server {
     proxy_redirect     off;
   }
 
-  # 準備状態/メトリクス
-  location = /readyz {
-    proxy_pass         http://127.0.0.1:3000/readyz;
-    proxy_http_version 1.1;
-    proxy_set_header   Connection "";
-    access_log off;
-  }
+  location = /readyz  { proxy_pass http://127.0.0.1:3000/readyz;  proxy_set_header Connection ""; access_log off; }
+  location = /metrics { proxy_pass http://127.0.0.1:3000/metrics; proxy_set_header Connection ""; access_log off; }
 
-  location = /metrics {
-    proxy_pass         http://127.0.0.1:3000/metrics;
-    proxy_http_version 1.1;
-    proxy_set_header   Connection "";
-    access_log off;
-  }
-
-  client_max_body_size 50m;  # ← 全体デフォルト（/api は100mで上書き）
+  client_max_body_size 50m;
   sendfile on;
   keepalive_timeout 65;
 
