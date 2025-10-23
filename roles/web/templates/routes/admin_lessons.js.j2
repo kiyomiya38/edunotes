@@ -5,6 +5,14 @@ const path = require('path');
 const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 
+// === diag: 現在のログイン状態を返す（一時利用） ===
+router.get('/whoami', (req, res) => {
+  res.json({
+    sessionUser: req.session?.user || null,  // express-session のユーザー（admin なら role: 'admin'）
+    passportUser: req.user || null           // passport を使っている場合のユーザー
+  });
+});
+
 /* -------------------- 管理者判定 -------------------- */
 function requireAdmin(req, res, next) {
   const u = req.user || (req.session && req.session.user) || null;
