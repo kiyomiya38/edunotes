@@ -168,7 +168,7 @@
 
         // /api/admin ルートを使用
         const { id } = await postJSON('/api/admin/lessons', { title, slug, type:'text' });
-        await postJSON(`/api/admin/lessons/${id}/text/save`, { body_md });
+        await putJSON(`/api/admin/lessons/${id}/text`, { body_md });
         if (pub) { await postJSON(`/api/admin/lessons/${id}/publish`, { published:true, visibility:'public' }); }
 
         msg.className = 'ok';
