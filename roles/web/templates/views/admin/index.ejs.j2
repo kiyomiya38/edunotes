@@ -55,7 +55,6 @@
       <input id="t-title" type="text" placeholder="例）第1回 イントロ" required />
 
       <label for="t-slug">スラッグ（URL識別子）</label>
-      <!-- required を削除（任意入力） -->
       <input id="t-slug" type="text" placeholder="例）intro-1" />
 
       <label for="t-file">Markdown ファイル（.md）</label>
@@ -79,7 +78,6 @@
       <input id="v-title" type="text" placeholder="例）第1回 講義動画" required />
 
       <label for="v-slug">スラッグ（URL識別子）</label>
-      <!-- required を削除（任意入力） -->
       <input id="v-slug" type="text" placeholder="例）video-1" />
 
       <label for="v-file">動画ファイル（.mp4）</label>
@@ -95,40 +93,27 @@
   </section>
 
   <script>
+    // CSRF ヘッダ
     const CSRF = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+    const jsonHeaders = () => ({ 'Content-Type':'application/json', 'X-CSRF-Token': CSRF });
 
     async function postJSON(url, body) {
-      const r = await fetch(url, {
-        method:'POST',
-        headers:{'Content-Type':'application/json','X-CSRF-Token': CSRF},
-        body: JSON.stringify(body),
-        credentials: 'same-origin'
-      });
+      const r = await fetch(url, { method:'POST', headers: jsonHeaders(), body: JSON.stringify(body), credentials:'same-origin' });
       if (!r.ok) throw new Error(await r.text());
       return r.json();
     }
     async function putJSON(url, body) {
-      const r = await fetch(url, {
-        method:'PUT',
-        headers:{'Content-Type':'application/json','X-CSRF-Token': CSRF},
-        body: JSON.stringify(body),
-        credentials: 'same-origin'
-      });
+      const r = await fetch(url, { method:'PUT', headers: jsonHeaders(), body: JSON.stringify(body), credentials:'same-origin' });
       if (!r.ok) throw new Error(await r.text());
       return r.json();
     }
     async function patchJSON(url, body) {
-      const r = await fetch(url, {
-        method:'PATCH',
-        headers:{'Content-Type':'application/json','X-CSRF-Token': CSRF},
-        body: JSON.stringify(body),
-        credentials: 'same-origin'
-      });
+      const r = await fetch(url, { method:'PATCH', headers: jsonHeaders(), body: JSON.stringify(body), credentials:'same-origin' });
       if (!r.ok) throw new Error(await r.text());
       return r.json();
     }
 
-    /* ==== 追加：スラッグ自動生成ユーティリティ & 自動補完 ==== */
+    // スラッグ自動生成
     function makeSlug(input, fallback = 'item') {
       const base = String(input || '')
         .normalize('NFKD')
@@ -147,9 +132,7 @@
     const tFile  = document.getElementById('t-file');
     tTitle?.addEventListener('input', () => { if (!tSlug.value.trim()) tSlug.value = makeSlug(tTitle.value); });
     tFile?.addEventListener('change', () => {
-      if (!tSlug.value.trim() && tFile.files[0]) {
-        tSlug.value = makeSlug(tFile.files[0].name.replace(/\.[^.]+$/, ''), 'text');
-      }
+      if (!tSlug.value.trim() && tFile.files[0]) tSlug.value = makeSlug(tFile.files[0].name.replace(/\.[^.]+$/, ''), 'text');
     });
 
     // 動画：タイトル/ファイルから自動補完
@@ -158,11 +141,8 @@
     const vFile  = document.getElementById('v-file');
     vTitle?.addEventListener('input', () => { if (!vSlug.value.trim()) vSlug.value = makeSlug(vTitle.value); });
     vFile?.addEventListener('change', () => {
-      if (!vSlug.value.trim() && vFile.files[0]) {
-        vSlug.value = makeSlug(vFile.files[0].name.replace(/\.[^.]+$/, ''), 'video');
-      }
+      if (!vSlug.value.trim() && vFile.files[0]) vSlug.value = makeSlug(vFile.files[0].name.replace(/\.[^.]+$/, ''), 'video');
     });
-    /* ==== 自動生成ここまで ==== */
 
     // ===== 1) テキスト（.md） =====
     document.getElementById('form-text').addEventListener('submit', async (e) => {
@@ -170,29 +150,28 @@
       const msg = document.getElementById('t-msg');
       msg.className = 'muted';
       msg.textContent = '作成中…';
-
       try {
-        const title = document.getElementById('t-title').value.trim();
-        const slugInput = document.getElementById('t-slug').value.trim();
-        const file  = document.getElementById('t-file').files[0];
+        const title = tTitle.value.trim();
+        const slugInput = tSlug.value.trim();
+        const file  = tFile.files[0];
         const pub   = document.getElementById('t-publish').checked;
         if (!file) throw new Error('Markdownファイルを選択してください');
 
         const body_md = await new Promise((res, rej) => {
           const fr = new FileReader();
           fr.onerror = () => rej(new Error('ファイル読み込みに失敗'));
-          fr.onload = () => res(String(fr.result || ''));
+          fr.onload  = () => res(String(fr.result || ''));
           fr.readAsText(file, 'utf-8');
         });
 
         const slug = slugInput || makeSlug(title || (file?.name.replace(/\.[^.]+$/, '') || 'text'));
 
-        // 1) レッスン作成
-        const { id } = await postJSON('/admin/lessons', { title, slug, type:'text' });
-        // 2) 本文保存（POSTエイリアス）
-        await postJSON(`/admin/lessons/${id}/text/save`, { body_md });
-        // 3) 公開（POSTエイリアス）
-        if (pub) await postJSON(`/admin/lessons/${id}/publish`, { published:true, visibility:'public' });
+        // /api/admin ルートを使用
+        const { id } = await postJSON('/api/admin/lessons', { title, slug, type:'text' });
+        await putJSON(`/api/admin/lessons/${id}/text`, { body_md });
+        if (pub) {
+          await patchJSON(`/api/admin/lessons/${id}`, { published:true, visibility:'public' });
+        }
 
         msg.className = 'ok';
         msg.textContent = `作成しました（ID: ${id}）。一覧へ移動します…`;
@@ -211,20 +190,19 @@
       const bar = document.getElementById('v-progress');
       msg.className = 'muted';
       msg.textContent = '作成中…';
-
       try {
-        const title = document.getElementById('v-title').value.trim();
-        const slugInput = document.getElementById('v-slug').value.trim();
-        const file  = document.getElementById('v-file').files[0];
+        const title = vTitle.value.trim();
+        const slugInput = vSlug.value.trim();
+        const file  = vFile.files[0];
         if (!file) throw new Error('動画ファイル（.mp4）を選択してください');
 
         const slug = slugInput || makeSlug(title || (file?.name.replace(/\.[^.]+$/, '') || 'video'));
 
         // 1) レッスン枠
-        const { id } = await postJSON('/admin/lessons', { title, slug, type:'video' });
+        const { id } = await postJSON('/api/admin/lessons', { title, slug, type:'video' });
 
         // 2) presign を取得
-        const presign = await postJSON(`/admin/lessons/${id}/video/presign`, {
+        const presign = await postJSON(`/api/admin/lessons/${id}/video/presign`, {
           filename: file.name,
           size: file.size,
           contentType: file.type || 'video/mp4'
@@ -247,13 +225,12 @@
         });
 
         // 4) 完了通知 + 公開
-        await postJSON(`/admin/lessons/${id}/video/complete`, {
+        await postJSON(`/api/admin/lessons/${id}/video/complete`, {
           s3_key: presign.key,
           size: file.size,
           duration_sec: null
         });
-        // 公開（POSTエイリアスに統一）
-        await postJSON(`/admin/lessons/${id}/publish`, { published:true, visibility:'public' });
+        await patchJSON(`/api/admin/lessons/${id}`, { published:true, visibility:'public' });
 
         msg.className = 'ok';
         msg.textContent = `アップロード完了・公開しました（ID: ${id}）。一覧へ移動します…`;
