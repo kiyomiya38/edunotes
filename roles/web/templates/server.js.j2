@@ -281,6 +281,7 @@ app.get("/api/download", async (req, res) => {
 // --- Admin & Docs routes（既存のまま） ---
 try { app.use('/admin', require('./routes/admin')); } catch (e) { console.warn('[info] routes/admin not found'); }
 try { app.use('/admin', require('./routes/admin_lessons')); } catch (e) { console.warn('[info] routes/admin_lessons not found'); }
+try { app.use('/api/admin', require('./routes/admin_lessons')); } catch (e) { console.warn('[info] routes/admin_lessons not found (api alias)'); }  // ★追加
 try { app.use('/docs',  require('./routes/docs'));  } catch (e) { console.warn('[info] routes/docs not found');  }
 
 // --- フォールバック（404 などの前に） ---
