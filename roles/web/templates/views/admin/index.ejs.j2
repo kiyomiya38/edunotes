@@ -102,7 +102,7 @@
         method:'POST',
         headers:{'Content-Type':'application/json','X-CSRF-Token': CSRF},
         body: JSON.stringify(body),
-        credentials: 'same-origin'   // セッションクッキー送信
+        credentials: 'same-origin'
       });
       if (!r.ok) throw new Error(await r.text());
       return r.json();
@@ -112,7 +112,7 @@
         method:'PUT',
         headers:{'Content-Type':'application/json','X-CSRF-Token': CSRF},
         body: JSON.stringify(body),
-        credentials: 'same-origin'   // セッションクッキー送信
+        credentials: 'same-origin'
       });
       if (!r.ok) throw new Error(await r.text());
       return r.json();
@@ -122,7 +122,7 @@
         method:'PATCH',
         headers:{'Content-Type':'application/json','X-CSRF-Token': CSRF},
         body: JSON.stringify(body),
-        credentials: 'same-origin'   // セッションクッキー送信
+        credentials: 'same-origin'
       });
       if (!r.ok) throw new Error(await r.text());
       return r.json();
@@ -173,13 +173,11 @@
 
       try {
         const title = document.getElementById('t-title').value.trim();
-        // 空なら送信直前に自動生成（保険）
         const slugInput = document.getElementById('t-slug').value.trim();
         const file  = document.getElementById('t-file').files[0];
         const pub   = document.getElementById('t-publish').checked;
         if (!file) throw new Error('Markdownファイルを選択してください');
 
-        // ファイル内容を読む
         const body_md = await new Promise((res, rej) => {
           const fr = new FileReader();
           fr.onerror = () => rej(new Error('ファイル読み込みに失敗'));
@@ -191,9 +189,9 @@
 
         // 1) レッスン作成
         const { id } = await postJSON('/admin/lessons', { title, slug, type:'text' });
-        // 2) 本文保存
+        // 2) 本文保存（POSTエイリアス）
         await postJSON(`/admin/lessons/${id}/text/save`, { body_md });
-        // 3) 公開
+        // 3) 公開（POSTエイリアス）
         if (pub) await postJSON(`/admin/lessons/${id}/publish`, { published:true, visibility:'public' });
 
         msg.className = 'ok';
@@ -254,7 +252,8 @@
           size: file.size,
           duration_sec: null
         });
-        await patchJSON(`/admin/lessons/${id}`, { published:true, visibility:'public' });
+        // 公開（POSTエイリアスに統一）
+        await postJSON(`/admin/lessons/${id}/publish`, { published:true, visibility:'public' });
 
         msg.className = 'ok';
         msg.textContent = `アップロード完了・公開しました（ID: ${id}）。一覧へ移動します…`;
