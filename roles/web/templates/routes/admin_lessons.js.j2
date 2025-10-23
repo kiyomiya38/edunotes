@@ -5,15 +5,15 @@ const path = require('path');
 const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 
-// === diag: 現在のログイン状態を返す（一時利用） ===
+/* ───────────────────────── diag: 現在のログイン状態を返す（確認用） ───────────────────────── */
 router.get('/whoami', (req, res) => {
   res.json({
-    sessionUser: req.session?.user || null,  // express-session のユーザー（admin なら role: 'admin'）
-    passportUser: req.user || null           // passport を使っている場合のユーザー
+    sessionUser: req.session?.user || null, // express-session のユーザー（admin なら role: 'admin'）
+    passportUser: req.user || null          // passport を使っている場合のユーザー
   });
 });
 
-/* -------------------- 管理者判定 -------------------- */
+/* ───────────────────────── 管理者判定 ───────────────────────── */
 function requireAdmin(req, res, next) {
   const u = req.user || (req.session && req.session.user) || null;
   const role = u && (u.role || u.role_name || (u.isAdmin ? 'admin' : null));
@@ -24,7 +24,7 @@ function requireAdmin(req, res, next) {
   return res.status(403).send('Forbidden');
 }
 
-/* -------------------- ユーティリティ -------------------- */
+/* ───────────────────────── ユーティリティ ───────────────────────── */
 function slugify(input, fallback = 'item') {
   if (!input) return fallback;
   const s = String(input)
@@ -41,7 +41,8 @@ function slugify(input, fallback = 'item') {
 async function ensureUniqueSlug(db, base) {
   let candidate = base;
   let i = 2;
-  while (true) { // eslint-disable-line no-constant-condition
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
     const { rows } = await db.query('SELECT 1 FROM lessons WHERE slug=$1 LIMIT 1', [candidate]);
     if (rows.length === 0) return candidate;
     candidate = (base + '-' + i).slice(0, 80);
@@ -49,16 +50,13 @@ async function ensureUniqueSlug(db, base) {
   }
 }
 
-// lesson の存在と型を軽く確認
 async function requireLesson(db, id) {
   const r = await db.query('SELECT id, type FROM lessons WHERE id=$1', [id]);
   return r.rows[0] || null;
 }
 
-/* -------------------- 1) レッスン作成 -------------------- */
-/**
- * body: { title, slug?, type: 'text'|'video' }
- */
+/* ───────────────────────── 1) レッスン作成 ─────────────────────────
+   body: { title, slug?, type: 'text'|'video' } */
 router.post('/lessons', requireAdmin, async (req, res) => {
   try {
     const db = req.app.get('db');
@@ -72,7 +70,9 @@ router.post('/lessons', requireAdmin, async (req, res) => {
       return res.status(400).json({ error: 'bad params: require title and type(text|video)' });
     }
 
-    slug = slug && String(slug).trim() ? slugify(slug) : slugify(title, type === 'video' ? 'video' : 'text');
+    slug = slug && String(slug).trim()
+      ? slugify(slug)
+      : slugify(title, type === 'video' ? 'video' : 'text');
     slug = await ensureUniqueSlug(db, slug);
 
     const r = await db.query(
@@ -94,10 +94,8 @@ router.post('/lessons', requireAdmin, async (req, res) => {
   }
 });
 
-/* -------------------- 2) テキスト保存 (PUT) -------------------- */
-/**
- * body: { body_md }
- */
+/* ───────────────────────── 2) テキスト保存 (PUT) ─────────────────────────
+   body: { body_md } */
 router.put('/lessons/:id/text', requireAdmin, async (req, res) => {
   try {
     const db = req.app.get('db');
@@ -112,7 +110,9 @@ router.put('/lessons/:id/text', requireAdmin, async (req, res) => {
 
     const { body_md } = req.body || {};
     await db.query(
-      `UPDATE lesson_texts SET body_md=$1, version=version+1, updated_at=now() WHERE lesson_id=$2`,
+      `UPDATE lesson_texts
+         SET body_md=$1, version=version+1, updated_at=now()
+       WHERE lesson_id=$2`,
       [String(body_md || ''), id]
     );
     res.json({ ok: true });
@@ -122,10 +122,8 @@ router.put('/lessons/:id/text', requireAdmin, async (req, res) => {
   }
 });
 
-/* -------------------- 2') テキスト保存 (PUTの代替POST) -------------------- */
-/**
- * body: { body_md }
- */
+/* ───────────────────────── 2') テキスト保存 (PUT の代替 POST) ─────────────────────────
+   body: { body_md } */
 router.post('/lessons/:id/text/save', requireAdmin, async (req, res) => {
   try {
     const db = req.app.get('db');
@@ -140,7 +138,9 @@ router.post('/lessons/:id/text/save', requireAdmin, async (req, res) => {
 
     const { body_md } = req.body || {};
     await db.query(
-      `UPDATE lesson_texts SET body_md=$1, version=version+1, updated_at=now() WHERE lesson_id=$2`,
+      `UPDATE lesson_texts
+         SET body_md=$1, version=version+1, updated_at=now()
+       WHERE lesson_id=$2`,
       [String(body_md || ''), id]
     );
     res.json({ ok: true });
@@ -150,11 +150,8 @@ router.post('/lessons/:id/text/save', requireAdmin, async (req, res) => {
   }
 });
 
-/* -------------------- 3) 動画 presign -------------------- */
-/**
- * body: { filename, contentType?, size? }
- * return: { url, key, expiresIn }
- */
+/* ───────────────────────── 3) 動画 presign ─────────────────────────
+   body: { filename, contentType?, size? } -> { url, key, expiresIn } */
 router.post('/lessons/:id/video/presign', requireAdmin, async (req, res) => {
   try {
     const db = req.app.get('db');
@@ -171,7 +168,6 @@ router.post('/lessons/:id/video/presign', requireAdmin, async (req, res) => {
     filename = (filename || '').trim();
     if (!filename) return res.status(400).json({ error: 'filename required' });
 
-    // パス混入を除去（basenameに落とす）
     const safeName = path.basename(filename).replace(/[\r\n]/g, '');
     const Key = `videos/${id}/source/${safeName}`;
 
@@ -187,7 +183,7 @@ router.post('/lessons/:id/video/presign', requireAdmin, async (req, res) => {
         Key,
         ContentType: contentType || 'video/mp4'
       }),
-      { expiresIn: 60 * 10 } // 10 min
+      { expiresIn: 60 * 10 }
     );
     res.json({ url, key: Key, expiresIn: 600 });
   } catch (e) {
@@ -196,10 +192,8 @@ router.post('/lessons/:id/video/presign', requireAdmin, async (req, res) => {
   }
 });
 
-/* -------------------- 4) 動画アップロード完了 -------------------- */
-/**
- * body: { s3_key, size?, duration_sec? }
- */
+/* ───────────────────────── 4) 動画アップロード完了 ─────────────────────────
+   body: { s3_key, size?, duration_sec? } */
 router.post('/lessons/:id/video/complete', requireAdmin, async (req, res) => {
   try {
     const db = req.app.get('db');
@@ -226,10 +220,8 @@ router.post('/lessons/:id/video/complete', requireAdmin, async (req, res) => {
   }
 });
 
-/* -------------------- 5) 公開/タイトル等の更新 (PATCH) -------------------- */
-/**
- * body: { title?, slug?, published?, visibility? }
- */
+/* ───────────────────────── 5) 公開/タイトル等の更新 (PATCH) ─────────────────────────
+   body: { title?, slug?, published?, visibility? } */
 router.patch('/lessons/:id', requireAdmin, async (req, res) => {
   try {
     const db = req.app.get('db');
@@ -243,7 +235,6 @@ router.patch('/lessons/:id', requireAdmin, async (req, res) => {
 
     const { title, slug, published, visibility } = req.body || {};
 
-    // slug を更新する場合は正規化＋一意チェック
     let newSlug = null;
     if (typeof slug === 'string' && slug.trim() !== '') {
       newSlug = await ensureUniqueSlug(db, slugify(slug));
@@ -267,10 +258,8 @@ router.patch('/lessons/:id', requireAdmin, async (req, res) => {
   }
 });
 
-/* -------------------- 5') 公開/タイトル等の更新 (PATCHの代替POST) -------------------- */
-/**
- * body: { title?, slug?, published?, visibility? }
- */
+/* ───────────────────────── 5') 公開/タイトル等の更新 (PATCH の代替 POST) ─────────────────────────
+   body: { title?, slug?, published?, visibility? } */
 router.post('/lessons/:id/publish', requireAdmin, async (req, res) => {
   try {
     const db = req.app.get('db');
