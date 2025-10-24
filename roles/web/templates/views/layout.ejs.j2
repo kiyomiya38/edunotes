@@ -4,16 +4,28 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.css">
 </head><body>
 <header>
-  <h1><a href="/notes" style="text-decoration:none;">EduNotes</a></h1>
-  <% if (user) { %>
-    <div>
-      <span style="margin-right:8px;">👤 <%= user.email %></span>
-      <form method="post" action="/logout" style="display:inline;">
-        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-        <button>Logout</button>
-      </form>
-    </div>
-  <% } %>
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+    <h1 style="margin:0;"><a href="/notes" style="text-decoration:none;">EduNotes</a></h1>
+
+    <!-- 追加: ナビ（常に表示） -->
+    <nav style="display:flex;gap:12px;align-items:center;">
+      <a href="/" style="text-decoration:none;">🏠 Home</a>
+      <a href="/notes" style="text-decoration:none;">📝 Notes</a>
+      <a href="/docs" style="text-decoration:none;">📚 Docs</a>
+      <a href="/courses" style="text-decoration:none;">🎓 Courses</a>
+      <a href="/vod" style="text-decoration:none;">🎬 VOD</a>
+    </nav>
+
+    <% if (user) { %>
+      <div>
+        <span style="margin-right:8px;">👤 <%= user.email %></span>
+        <form method="post" action="/logout" style="display:inline;">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <button>Logout</button>
+        </form>
+      </div>
+    <% } %>
+  </div>
 </header>
 <main><%- body %></main>
 <footer style="margin-top:48px; font-size:0.9em; opacity:.7;">

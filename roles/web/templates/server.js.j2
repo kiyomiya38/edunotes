@@ -284,8 +284,8 @@ try { app.use('/admin', require('./routes/admin_lessons')); } catch (e) { consol
 try { app.use('/api/admin', require('./routes/admin_lessons')); } catch (e) { console.warn('[info] routes/admin_lessons not found (api alias)'); }  // ★追加
 try { app.use('/docs',  require('./routes/docs'));  } catch (e) { console.warn('[info] routes/docs not found');  }
 
-// --- フォールバック（404 などの前に） ---
-app.get("/", (_req, res) => res.send("EduNotes backend is running."));
+// Home は UI の一覧（/notes）へ誘導
+app.get("/", (_req, res) => res.redirect(302, "/notes"));
 
 // ★ CSRF 明示エラーハンドラ（Nginx/ALBの汎用403と区別する）
 app.use((err, req, res, next) => {
