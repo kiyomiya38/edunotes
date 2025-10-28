@@ -3,10 +3,11 @@
 ${error ? `<p style="color:red">${error}</p>` : '' }
 <form method="post" action="/login">
   <input type="hidden" name="_csrf" value="${csrfToken}">
+  <input type="hidden" name="next" value="${typeof next !== 'undefined' && next ? next : '/courses'}">
   <label>Email <input name="email" type="email" required></label>
   <label>Password <input name="password" type="password" required></label>
   <button>ログイン</button>
 </form>
-<p>はじめての方は <a href="/signup">新規登録</a></p>
-`, user, csrfToken }) %>
+<p>はじめての方は <a href="/signup?next=${encodeURIComponent(typeof next !== 'undefined' && next ? next : '/courses')}">新規登録</a></p>
+`, user, csrfToken, next }) %>
 <p>管理者の方は <a href="/admin/login">こちら</a></p>

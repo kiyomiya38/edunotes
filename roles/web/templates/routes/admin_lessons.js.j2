@@ -1,0 +1,299 @@
+// roles/web/templates/routes/admin_lessons.js.j2
+const express = require('express');
+const router = express.Router();
+const path = require('path');
+const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
+const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
+
+/* ───────────────────────── diag: 現在のログイン状態を返す（確認用） ───────────────────────── */
+router.get('/whoami', (req, res) => {
+  res.json({
+    sessionUser: req.session?.user || null, // express-session のユーザー（admin なら role: 'admin'）
+    passportUser: req.user || null          // passport を使っている場合のユーザー
+  });
+});
+
+/* ───────────────────────── 管理者判定 ───────────────────────── */
+function requireAdmin(req, res, next) {
+  const u = req.user || (req.session && req.session.user) || null;
+  const role = u && (u.role || u.role_name || (u.isAdmin ? 'admin' : null));
+  const isAdmin = typeof role === 'string' && role.toLowerCase() === 'admin';
+  // editor も許可したい場合は下を有効化
+  // const isEditor = typeof role === 'string' && role.toLowerCase() === 'editor';
+  if (isAdmin /* || isEditor */) return next();
+  return res.status(403).send('Forbidden');
+}
+
+/* ───────────────────────── ユーティリティ ───────────────────────── */
+function slugify(input, fallback = 'item') {
+  if (!input) return fallback;
+  const s = String(input)
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\w\s-]/g, ' ')
+    .replace(/[_\s]+/g, '-')
+    .toLowerCase()
+    .replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return s.length ? s.slice(0, 80) : fallback;
+}
+
+async function ensureUniqueSlug(db, base) {
+  let candidate = base;
+  let i = 2;
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const { rows } = await db.query('SELECT 1 FROM lessons WHERE slug=$1 LIMIT 1', [candidate]);
+    if (rows.length === 0) return candidate;
+    candidate = (base + '-' + i).slice(0, 80);
+    i++;
+  }
+}
+
+async function requireLesson(db, id) {
+  const r = await db.query('SELECT id, type FROM lessons WHERE id=$1', [id]);
+  return r.rows[0] || null;
+}
+
+/* ───────────────────────── 1) レッスン作成 ─────────────────────────
+   body: { title, slug?, type: 'text'|'video' } */
+router.post('/lessons', requireAdmin, async (req, res) => {
+  try {
+    const db = req.app.get('db');
+    if (!db) return res.status(500).json({ error: 'db not ready' });
+
+    let { title, slug, type } = req.body || {};
+    title = (title || '').trim();
+    type  = (type || '').trim();
+
+    if (!title || !['text', 'video'].includes(type)) {
+      return res.status(400).json({ error: 'bad params: require title and type(text|video)' });
+    }
+
+    slug = slug && String(slug).trim()
+      ? slugify(slug)
+      : slugify(title, type === 'video' ? 'video' : 'text');
+    slug = await ensureUniqueSlug(db, slug);
+
+    const r = await db.query(
+      `INSERT INTO lessons(title, slug, type) VALUES($1,$2,$3) RETURNING id`,
+      [title, slug, type]
+    );
+    const id = r.rows[0].id;
+
+    if (type === 'text') {
+      await db.query(`INSERT INTO lesson_texts(lesson_id, body_md) VALUES($1,$2)`, [id, '# 新規テキスト']);
+    } else {
+      await db.query(`INSERT INTO lesson_videos(lesson_id, status) VALUES($1,'pending')`, [id]);
+    }
+
+    res.json({ id, slug });
+  } catch (e) {
+    console.error('[admin_lessons:create]', e);
+    res.status(500).json({ error: 'create failed' });
+  }
+});
+
+/* ───────────────────────── 2) テキスト保存 (PUT) ─────────────────────────
+   body: { body_md } */
+router.put('/lessons/:id/text', requireAdmin, async (req, res) => {
+  try {
+    const db = req.app.get('db');
+    if (!db) return res.status(500).json({ error: 'db not ready' });
+
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isInteger(id)) return res.status(400).json({ error: 'bad id' });
+
+    const lesson = await requireLesson(db, id);
+    if (!lesson) return res.status(404).json({ error: 'lesson not found' });
+    if (lesson.type !== 'text') return res.status(400).json({ error: 'lesson type must be text' });
+
+    const { body_md } = req.body || {};
+    await db.query(
+      `UPDATE lesson_texts
+         SET body_md=$1, version=version+1, updated_at=now()
+       WHERE lesson_id=$2`,
+      [String(body_md || ''), id]
+    );
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('[admin_lessons:put-text]', e);
+    res.status(500).json({ error: 'update text failed' });
+  }
+});
+
+/* ───────────────────────── 2') テキスト保存 (PUT の代替 POST) ─────────────────────────
+   body: { body_md } */
+router.post('/lessons/:id/text/save', requireAdmin, async (req, res) => {
+  try {
+    const db = req.app.get('db');
+    if (!db) return res.status(500).json({ error: 'db not ready' });
+
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isInteger(id)) return res.status(400).json({ error: 'bad id' });
+
+    const lesson = await requireLesson(db, id);
+    if (!lesson) return res.status(404).json({ error: 'lesson not found' });
+    if (lesson.type !== 'text') return res.status(400).json({ error: 'lesson type must be text' });
+
+    const { body_md } = req.body || {};
+    await db.query(
+      `UPDATE lesson_texts
+         SET body_md=$1, version=version+1, updated_at=now()
+       WHERE lesson_id=$2`,
+      [String(body_md || ''), id]
+    );
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('[admin_lessons:post-text-save]', e);
+    res.status(500).json({ error: 'update text failed' });
+  }
+});
+
+/* ───────────────────────── 3) 動画 presign ─────────────────────────
+   body: { filename, contentType?, size? } -> { url, key, expiresIn } */
+router.post('/lessons/:id/video/presign', requireAdmin, async (req, res) => {
+  try {
+    const db = req.app.get('db');
+    if (!db) return res.status(500).json({ error: 'db not ready' });
+
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isInteger(id)) return res.status(400).json({ error: 'bad id' });
+
+    const lesson = await requireLesson(db, id);
+    if (!lesson) return res.status(404).json({ error: 'lesson not found' });
+    if (lesson.type !== 'video') return res.status(400).json({ error: 'lesson type must be video' });
+
+    let { filename, contentType } = req.body || {};
+    filename = (filename || '').trim();
+    if (!filename) return res.status(400).json({ error: 'filename required' });
+
+    const safeName = path.basename(filename).replace(/[\r\n]/g, '');
+    const Key = `videos/${id}/source/${safeName}`;
+
+    const region = process.env.S3_REGION;
+    const bucket = process.env.S3_BUCKET;
+    if (!region || !bucket) return res.status(500).json({ error: 'S3 env missing' });
+
+    const s3 = new S3Client({ region });
+    const url = await getSignedUrl(
+      s3,
+      new PutObjectCommand({
+        Bucket: bucket,
+        Key,
+        ContentType: contentType || 'video/mp4'
+      }),
+      { expiresIn: 60 * 10 }
+    );
+    res.json({ url, key: Key, expiresIn: 600 });
+  } catch (e) {
+    console.error('[admin_lessons:presign]', e);
+    res.status(500).json({ error: 'presign failed' });
+  }
+});
+
+/* ───────────────────────── 4) 動画アップロード完了 ─────────────────────────
+   body: { s3_key, size?, duration_sec? } */
+router.post('/lessons/:id/video/complete', requireAdmin, async (req, res) => {
+  try {
+    const db = req.app.get('db');
+    if (!db) return res.status(500).json({ error: 'db not ready' });
+
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isInteger(id)) return res.status(400).json({ error: 'bad id' });
+
+    const lesson = await requireLesson(db, id);
+    if (!lesson) return res.status(404).json({ error: 'lesson not found' });
+    if (lesson.type !== 'video') return res.status(400).json({ error: 'lesson type must be video' });
+
+    const { s3_key, size, duration_sec } = req.body || {};
+    await db.query(
+      `UPDATE lesson_videos
+         SET s3_key_mp4=$1, size_bytes=$2, duration_sec=$3, status='ready', updated_at=now()
+       WHERE lesson_id=$4`,
+      [s3_key || null, size || null, duration_sec || null, id]
+    );
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('[admin_lessons:complete]', e);
+    res.status(500).json({ error: 'complete failed' });
+  }
+});
+
+/* ───────────────────────── 5) 公開/タイトル等の更新 (PATCH) ─────────────────────────
+   body: { title?, slug?, published?, visibility? } */
+router.patch('/lessons/:id', requireAdmin, async (req, res) => {
+  try {
+    const db = req.app.get('db');
+    if (!db) return res.status(500).json({ error: 'db not ready' });
+
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isInteger(id)) return res.status(400).json({ error: 'bad id' });
+
+    const lesson = await requireLesson(db, id);
+    if (!lesson) return res.status(404).json({ error: 'lesson not found' });
+
+    const { title, slug, published, visibility } = req.body || {};
+
+    let newSlug = null;
+    if (typeof slug === 'string' && slug.trim() !== '') {
+      newSlug = await ensureUniqueSlug(db, slugify(slug));
+    }
+
+    await db.query(
+      `UPDATE lessons SET
+         title      = COALESCE($2, title),
+         slug       = COALESCE($3, slug),
+         published  = COALESCE($4, published),
+         visibility = COALESCE($5, visibility),
+         updated_at = now()
+       WHERE id=$1`,
+      [id, title || null, newSlug, typeof published === 'boolean' ? published : null, visibility || null]
+    );
+
+    res.json({ ok: true, slug: newSlug || undefined });
+  } catch (e) {
+    console.error('[admin_lessons:patch]', e);
+    res.status(500).json({ error: 'patch failed' });
+  }
+});
+
+/* ───────────────────────── 5') 公開/タイトル等の更新 (PATCH の代替 POST) ─────────────────────────
+   body: { title?, slug?, published?, visibility? } */
+router.post('/lessons/:id/publish', requireAdmin, async (req, res) => {
+  try {
+    const db = req.app.get('db');
+    if (!db) return res.status(500).json({ error: 'db not ready' });
+
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isInteger(id)) return res.status(400).json({ error: 'bad id' });
+
+    const lesson = await requireLesson(db, id);
+    if (!lesson) return res.status(404).json({ error: 'lesson not found' });
+
+    const { title, slug, published, visibility } = req.body || {};
+
+    let newSlug = null;
+    if (typeof slug === 'string' && slug.trim() !== '') {
+      newSlug = await ensureUniqueSlug(db, slugify(slug));
+    }
+
+    await db.query(
+      `UPDATE lessons SET
+         title      = COALESCE($2, title),
+         slug       = COALESCE($3, slug),
+         published  = COALESCE($4, published),
+         visibility = COALESCE($5, visibility),
+         updated_at = now()
+       WHERE id=$1`,
+      [id, title || null, newSlug, typeof published === 'boolean' ? published : null, visibility || null]
+    );
+
+    res.json({ ok: true, slug: newSlug || undefined });
+  } catch (e) {
+    console.error('[admin_lessons:post-publish]', e);
+    res.status(500).json({ error: 'patch failed' });
+  }
+});
+
+module.exports = router;

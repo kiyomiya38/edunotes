@@ -48,6 +48,15 @@
     group: edunotes
     mode: "0644"
 
+# 追加: 管理者向けS3直PUTの簡易確認ページ（必要ない場合は削除OK）
+- name: Deploy uploader.html
+  ansible.builtin.template:
+    src: "uploader.html.j2"
+    dest: "/opt/edunotes/public/uploader.html"
+    owner: edunotes
+    group: edunotes
+    mode: "0644"
+
 # クリーンインストール
 - name: Remove stale lockfile
   ansible.builtin.file:
@@ -108,7 +117,7 @@
     - redis_url | trim | regex_search('^redis://:@(:[0-9]+)?/0$')
 
 # ここで“空のREDIS_URLでの誤配備”を防ぎたいなら assert（任意）
-- name: Assert redis_url is present (to avoid CSRF/session pitfalls)  # ← 任意
+- name: Assert redis_url is present (to avoid CSRF/session pitfalls)
   ansible.builtin.assert:
     that:
       - (redis_url | default('') | trim) != ''
@@ -138,6 +147,9 @@
   loop:
     - /opt/edunotes/views
     - /opt/edunotes/views/notes
+    - /opt/edunotes/views/courses    # 追加
+    - /opt/edunotes/views/vod        # 追加
+    - /opt/edunotes/views/docs       # 追加（docs/show.ejs を流用する場合に必要）
     - /opt/edunotes/routes
 
 - name: Deploy EJS views
@@ -155,6 +167,12 @@
     - { src: "notes/new.ejs.j2",      dest: "notes/new.ejs" }
     - { src: "notes/show.ejs.j2",     dest: "notes/show.ejs" }
     - { src: "notes/edit.ejs.j2",     dest: "notes/edit.ejs" }
+    # 追加ビュー
+    - { src: "docs/index.ejs.j2",     dest: "docs/index.ejs" }
+    - { src: "docs/show.ejs.j2",      dest: "docs/show.ejs" }
+    - { src: "courses/index.ejs.j2",  dest: "courses/index.ejs" }
+    - { src: "vod/index.ejs.j2",      dest: "vod/index.ejs" }
+    - { src: "vod/show.ejs.j2",       dest: "vod/show.ejs" }
 
 - name: Deploy routes
   ansible.builtin.template:
@@ -166,6 +184,12 @@
   loop:
     - auth.js
     - notes.js
+    - courses.js
+    - vod.js
+    - docs.js
+    - admin.js
+    - admin_lessons.js   # 追加（管理API）
+    # - lessons.js       # 汎用レッスンAPIを作る場合のみ有効化（今回は不要）
 
 - name: Deploy DB schema
   ansible.builtin.template:
@@ -223,7 +247,7 @@
     executable: /bin/bash
   changed_when: false
 
-# （※ 再起動は最後にまとめる：ここが唯一の位置変更）
+# （※ 再起動は最後にまとめる）
 - name: Restart edunotes service (after all files are in place)
   ansible.builtin.systemd:
     name: edunotes

@@ -1,0 +1,17 @@
+<!-- roles/web/templates/views/courses/index.ejs.j2 -->
+<main class="container">
+  <h1>📚 Courses</h1>
+  <% if (!courses.length) { %>
+    <p>まだコースがありません。管理画面から作成してください。</p>
+  <% } else { %>
+    <ul class="grid">
+      <% courses.forEach(c => { %>
+        <li class="card">
+          <h3><%= c.title %></h3>
+          <p><%= c.summary || '' %></p>
+          <a href="/courses/<%= c.id %>">Open</a>
+        </li>
+      <% }) %>
+    </ul>
+  <% } %>
+</main>

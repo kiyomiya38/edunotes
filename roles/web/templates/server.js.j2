@@ -1,41 +1,48 @@
-// server.js.j2
+// server.js.j2 — 修正完全版（X-Ray順序是正＋DB/S3診断エンドポイント付き）
+
+// --- AWS X-Ray (最優先で初期化) ---
+const AWSXRay = require('aws-xray-sdk');
+AWSXRay.captureHTTPsGlobal(require('http'));
+AWSXRay.captureHTTPsGlobal(require('https')); // S3 などの HTTPS 呼び出しも捕捉
+AWSXRay.capturePromise();
+
+// --- 標準/外部モジュール ---
+const path = require("path");
+const fs = require("fs");
 const express = require("express");
 const morgan = require("morgan");
 const multer = require("multer");
 const prom = require("prom-client");
-const path = require("path");
 const csrf = require("csurf");
+const session = require("express-session");
+const RedisStore = require("connect-redis").default; // v7以降は .default
+const IORedis = require("ioredis");
 
-// 既存のS3ヘルパ（そのまま）
+// --- PostgreSQL (X-Ray ラップ済み) ---
+const pgWrapped = AWSXRay.capturePostgres(require("pg"));
+const { Pool } = pgWrapped;
+
+// --- 既存のS3ヘルパ（そのまま利用） ---
 const { saveBuffer, getSignedUrl, remove, selfCheck } = require("./storage");
 
-// 追加: UI/セッション/DB 用の最小依存（既存APIは壊さない）
-const session = require("express-session");
-const RedisStore = require("connect-redis").default; // ★v7系は .default
-const IORedis = require("ioredis");
-const fs = require("fs");                 // ★ 追加（TLS CA 読み込み用）
-const { Pool } = require("pg");
-
-// --- basic app setup ---
+// --- アプリ本体 ---
 const app = express();
-// ★PORTのフォールバックを追加（APP_PORT or PORT）
 const PORT = parseInt(process.env.APP_PORT || process.env.PORT || "3000", 10);
 
-// logging
-app.use(morgan("combined"));
+// ★ X-Ray のセグメントを最初に開く（必ず app 初期化直後）
+app.use(AWSXRay.express.openSegment('EduNotesApp'));
 
-// body parsers（既存APIとフォーム両対応）
+// --- ロギング / パーサ / 静的配信 ---
+app.use(morgan("combined"));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
-// static (public フォルダに index.html などを置く)
 app.use(express.static(path.join(__dirname, "public")));
 
-// ---- view (EJS)
+// --- View (EJS) ---
 app.set("view engine", "ejs");
 app.set("views", path.join(process.cwd(), "views")); // /opt/edunotes/views を想定
 
-// ---- Redisセッション（任意）
+// --- Redis セッション（任意） ---
 let redisClient = null;
 let sessionEnabled = false;
 try {
@@ -57,25 +64,32 @@ try {
   console.warn("[warn] Redis session not enabled:", e?.message || e);
 }
 
-// ★CSRFは「セッションが有効なときだけ」、かつ /api/*・/metrics・/healthz・/readyz・/favicon.ico は除外
+// --- CSRF（セッション有効時のみ、特定パスは除外） ---
 if (sessionEnabled) {
   const csrfMiddleware = csrf();
   app.use((req, res, next) => {
     const p = req.path || "";
     if (
+      p.startsWith("/admin/") ||   // ← 管理系は暫定で除外（まず通す）
       p.startsWith("/api/") ||
       p === "/metrics" ||
       p === "/healthz" ||
       p === "/readyz" ||
-      p === "/favicon.ico"
-    ) {
-      return next();
-    }
+      p === "/favicon.ico" ||
+      p.startsWith("/diag/") // 診断系は除外
+    ) return next();
     return csrfMiddleware(req, res, next);
   });
-}
+  // ビューから参照できるよう、CSRFトークンを res.locals に入れる
+  app.use((req, res, next) => {
+    if (typeof req.csrfToken === "function") {
+      try { res.locals.csrfToken = req.csrfToken(); } catch (_) {}
+    }
+    next();
+  });
+ }
 
-// ---- PostgreSQL（任意）
+// --- PostgreSQL（任意 / SSLは環境変数で制御） ---
 let pgPool = null;
 try {
   if (process.env.DB_URL) {
@@ -85,30 +99,27 @@ try {
       const caPath = process.env.PGSSLROOTCERT || "/etc/ssl/certs/rds-global-bundle.pem";
       try {
         const ca = fs.readFileSync(caPath, "utf8");
-        ssl = {
-          ca,
-          rejectUnauthorized: mode === "verify-full",
-        };
+        ssl = { ca, rejectUnauthorized: mode === "verify-full" };
       } catch (e) {
         console.warn("[warn] could not read PGSSLROOTCERT:", e?.message || e);
         ssl = { rejectUnauthorized: mode === "verify-full" };
       }
     }
     pgPool = new Pool({ connectionString: process.env.DB_URL, ssl });
-    if (pgPool) app.set('db', pgPool);
+    if (pgPool) app.set("db", pgPool);
   }
 } catch (e) {
   console.warn("[warn] Postgres not configured:", e?.message || e);
 }
 
-// request共有（ルータから使えるように）
+// --- リクエストスコープ共有（ルータから参照可） ---
 app.use((req, _res, next) => {
   req.redis = redisClient;
   req.db = pgPool;
   next();
 });
 
-// ===== 管理ログイン（最小追加）ここから =====
+// ===== 管理ログイン（最小）ここから =====
 async function __authUser(db, email, password) {
   if (!db || !email || !password) return null;
   try {
@@ -165,9 +176,9 @@ app.post("/admin/login", async (req, res) => {
     return res.status(500).send("ログイン処理でエラーが発生しました");
   }
 });
-// ===== 管理ログイン（最小追加）ここまで =====
+// ===== 管理ログイン（最小）ここまで =====
 
-// metrics（既存のまま）
+// --- metrics ---
 const collectDefaultMetrics = prom.collectDefaultMetrics;
 collectDefaultMetrics();
 app.get("/metrics", async (_req, res) => {
@@ -175,13 +186,11 @@ app.get("/metrics", async (_req, res) => {
   res.end(await prom.register.metrics());
 });
 
-// health（既存のまま）
+// --- health / ready ---
 app.get("/healthz", (_req, res) => res.status(200).send("ok"));
-
-// ready（S3自己診断 + Redis + DB の順で軽く確認。設定が無いものはスキップ）
 app.get("/readyz", async (_req, res) => {
   try {
-    await selfCheck();
+    await selfCheck(); // S3 の自己診断（内部でS3を叩けばX-Rayに出ます）
     if (redisClient) {
       const pong = await redisClient.ping();
       if (pong !== "PONG") throw new Error("redis not ready");
@@ -196,7 +205,33 @@ app.get("/readyz", async (_req, res) => {
   }
 });
 
-// --- upload API ---
+// --- DB/S3 診断（Trace Map に確実にノードを出すための軽量エンドポイント） ---
+app.get("/diag/db", async (_req, res) => {
+  try {
+    if (!pgPool) throw new Error("pgPool not ready");
+    const r = await pgPool.query("select 1 as ok");
+    res.json({ ok: true, result: r.rows[0] });
+  } catch (e) {
+    console.error("[diag/db]", e);
+    res.status(500).json({ ok: false, error: String(e) });
+  }
+});
+
+app.get("/diag/s3", async (_req, res) => {
+  try {
+    // 既存の storage.js の getSignedUrl を利用（内部で S3 を呼べばノードが出る）
+    const url = await getSignedUrl("healthcheck.txt", 60);
+    res.json({ ok: true, sampleUrl: url });
+  } catch (e) {
+    console.error("[diag/s3]", e);
+    res.status(500).json({ ok: false, error: String(e) });
+  }
+});
+
+// ★ Node到達プローブ（CSRF除外）
+app.post('/diag/whoami', (req, res) => res.json({ ok: true, from: 'node' }));
+
+// --- Upload / Download API ---
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
 
 app.post("/api/upload", upload.single("file"), async (req, res) => {
@@ -228,29 +263,42 @@ app.get("/api/download", async (req, res) => {
   }
 });
 
-// ---- 操作画面用ルータ（存在すれば使う／無ければスキップ）
+// --- 任意ルータ（存在すれば使う／なければスキップ） ---
 (function mountOptionalRouters() {
-  try {
-    const authRouter = require("./routes/auth");
-    app.use("/", authRouter);
-  } catch (e) {
-    console.warn("[info] routes/auth not found (UI auth disabled)");
-  }
-  try {
-    const notesRouter = require("./routes/notes");
-    app.use("/", notesRouter);
-  } catch (e) {
-    console.warn("[info] routes/notes not found (UI notes disabled)");
-  }
+  try { app.use("/", require("./routes/auth")); }
+  catch (e) { console.warn("[info] routes/auth not found (UI auth disabled)"); }
+
+  try { app.use("/", require("./routes/notes")); }
+  catch (e) { console.warn("[info] routes/notes not found (UI notes disabled)"); }
+
+  try { app.use("/", require("./routes/courses")); }
+  catch (e) { console.warn("[info] routes/courses not found (UI courses disabled)"); }
+
+  try { app.use("/", require("./routes/vod")); }
+  catch (e) { console.warn("[info] routes/vod not found (UI vod disabled)"); }
 })();
 
 // --- Admin & Docs routes（既存のまま） ---
 try { app.use('/admin', require('./routes/admin')); } catch (e) { console.warn('[info] routes/admin not found'); }
+try { app.use('/admin', require('./routes/admin_lessons')); } catch (e) { console.warn('[info] routes/admin_lessons not found'); }
+try { app.use('/api/admin', require('./routes/admin_lessons')); } catch (e) { console.warn('[info] routes/admin_lessons not found (api alias)'); }  // ★追加
 try { app.use('/docs',  require('./routes/docs'));  } catch (e) { console.warn('[info] routes/docs not found');  }
 
-// フォールバック
-app.get("/", (_req, res) => res.send("EduNotes backend is running."));
+// Home は UI の一覧（/notes）へ誘導
+app.get("/", (_req, res) => res.redirect(302, "/notes"));
 
+// ★ CSRF 明示エラーハンドラ（Nginx/ALBの汎用403と区別する）
+app.use((err, req, res, next) => {
+  if (err && err.code === 'EBADCSRFTOKEN') {
+    return res.status(403).send('EBADCSRFTOKEN');
+  }
+  return next(err);
+});
+
+// ★ すべてのルートの後で X-Ray を閉じる（必ず最後の use）
+app.use(AWSXRay.express.closeSegment());
+
+// --- 起動 ---
 app.listen(PORT, () => {
   console.log(`edunotes listening on :${PORT}`);
 });

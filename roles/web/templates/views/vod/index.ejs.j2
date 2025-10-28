@@ -1,0 +1,17 @@
+<!-- roles/web/templates/views/vod/index.ejs.j2 -->
+<main class="container">
+  <h1>🎥 Lecture Videos</h1>
+  <% if (!items.length) { %>
+    <p>まだ講義動画がありません。アップロード後に表示されます。</p>
+  <% } else { %>
+    <ul class="grid">
+      <% items.forEach(v => { %>
+        <li class="card">
+          <h3><%= v.title %></h3>
+          <p><%= v.duration || '' %></p>
+          <a href="/vod/<%= v.id %>">Play</a>
+        </li>
+      <% }) %>
+    </ul>
+  <% } %>
+</main>

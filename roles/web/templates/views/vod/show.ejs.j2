@@ -1,0 +1,9 @@
+<!-- roles/web/templates/views/vod/show.ejs.j2 -->
+<main class="container">
+  <h1>🎥 <%= title %></h1>
+  <video controls preload="metadata" style="max-width:100%;width:960px;max-width:100%;">
+    <source src="<%= url %>" type="video/mp4">
+    Your browser does not support HTML5 video.
+  </video>
+  <p style="margin-top:1rem"><a href="/vod">← Back to list</a></p>
+</main>

@@ -1,0 +1,92 @@
+---
+# Ubuntu 24.04 向け：公式バイナリ配置 + systemd 管理（冪等）
+
+- name: Ensure deps for xray
+  become: true
+  apt:
+    name:
+      - unzip
+      - curl
+      - ca-certificates
+    update_cache: yes
+    state: present
+
+- name: Create xray install dir
+  become: true
+  file:
+    path: /opt/xray
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+# 安定配布の公式ZIP（us-east-1ホストの公開S3）
+- name: Download xray-daemon bundle
+  become: true
+  get_url:
+    url: "https://s3.amazonaws.com/aws-xray-assets.us-east-1/xray-daemon/aws-xray-daemon-linux-3.x.zip"
+    dest: /opt/xray/aws-xray-daemon.zip
+    mode: "0644"
+
+- name: Unarchive xray-daemon
+  become: true
+  unarchive:
+    src: /opt/xray/aws-xray-daemon.zip
+    dest: /opt/xray
+    remote_src: true
+    creates: /opt/xray/xray
+
+- name: Install xray binary
+  become: true
+  copy:
+    src: /opt/xray/xray
+    dest: /usr/local/bin/xray
+    mode: "0755"
+    remote_src: true
+  register: xray_bin
+
+# systemd ユニット：リージョンを環境変数で固定 + local-mode で確実起動
+- name: Deploy systemd unit
+  become: true
+  copy:
+    dest: /etc/systemd/system/xray.service
+    mode: "0644"
+    content: |
+      [Unit]
+      Description=AWS X-Ray Daemon
+      Wants=network-online.target
+      After=network-online.target
+
+      [Service]
+      # リージョンは環境変数で固定（Ansible 変数 aws_region があれば後でテンプレート置換）
+      Environment=AWS_REGION={{ aws_region | default('ap-northeast-3') }}
+      Environment=AWS_DEFAULT_REGION={{ aws_region | default('ap-northeast-3') }}
+
+      # -o: 標準出力へログ, --region: 明示, --local-mode: メタデータ非依存で確実に起動
+      ExecStart=/usr/local/bin/xray -o --region ${AWS_REGION} --local-mode
+      Restart=always
+      RestartSec=2s
+      User=root
+
+      [Install]
+      WantedBy=multi-user.target
+  register: xray_unit
+
+- name: systemd daemon-reload (only when unit changed)
+  become: true
+  systemd:
+    daemon_reload: true
+  when: xray_unit is changed
+
+- name: Enable xray service
+  become: true
+  systemd:
+    name: xray
+    enabled: true
+
+- name: Start/Restart xray when needed
+  become: true
+  systemd:
+    name: xray
+    state: restarted
+  when: xray_unit is changed or xray_bin is changed

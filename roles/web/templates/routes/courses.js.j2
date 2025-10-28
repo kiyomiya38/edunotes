@@ -1,0 +1,41 @@
+// roles/web/templates/routes/courses.js.j2
+const express = require('express');
+const router = express.Router();
+
+function needLogin(req, res, next) {
+  const authed = typeof req.isAuthenticated === 'function' ? req.isAuthenticated() : !!req.user || !!req.session?.user;
+  if (authed) return next();
+  if (req.session) req.session.returnTo = req.originalUrl || '/courses';
+  return res.redirect('/login');
+}
+
+// 一覧: type='text' かつ published のみ
+router.get('/courses', needLogin, async (req, res) => {
+  const db = req.app.get('db');
+  const { rows } = await db.query(
+    `SELECT id, title, slug FROM lessons WHERE type='text' AND published=true ORDER BY id DESC`
+  );
+  // 既存ビューが courses[] を想定しているので名前を合わせる
+  const courses = rows.map(r => ({ id: r.id, title: r.title, summary: '' }));
+  res.render('courses/index', { title: 'Courses', courses });
+});
+
+// 詳細: MarkdownをHTML化して表示
+router.get('/courses/:id', needLogin, async (req, res) => {
+  const db = req.app.get('db');
+  const { rows } = await db.query(
+    `SELECT l.id, l.title, t.body_md
+     FROM lessons l JOIN lesson_texts t ON t.lesson_id=l.id
+     WHERE l.id=$1 AND l.type='text' AND l.published=true`, [req.params.id]
+  );
+  if (!rows.length) return res.status(404).send('Not found');
+  const { marked } = require('marked');
+  const createDOMPurify = require('isomorphic-dompurify');
+  const { JSDOM } = require('jsdom');
+  const DOMPurify = createDOMPurify(new JSDOM('').window);
+  const html = DOMPurify.sanitize(marked.parse(rows[0].body_md || ''));
+  // 既存の docs/show.ejs を流用（タイトル+htmlを渡せばOK）
+  res.render('docs/show', { title: rows[0].title, meta: {}, html });
+});
+
+module.exports = router;
