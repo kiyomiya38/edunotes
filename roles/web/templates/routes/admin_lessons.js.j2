@@ -5,26 +5,29 @@ const path = require('path');
 const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 
-/* ───────────────────────── diag: 現在のログイン状態を返す（確認用） ───────────────────────── */
+/* ------------------------- diag: return current login state (for checks) ------------------------- */
 router.get('/whoami', (req, res) => {
   res.json({
-    sessionUser: req.session?.user || null, // express-session のユーザー（admin なら role: 'admin'）
-    passportUser: req.user || null          // passport を使っている場合のユーザー
+    sessionUser: req.session?.user || null, // express-session user (admin has role: 'admin')
+    passportUser: req.user || null          // passport user if passport is used
   });
 });
 
-/* ───────────────────────── 管理者判定 ───────────────────────── */
+/* ------------------------- admin guard ------------------------- */
 function requireAdmin(req, res, next) {
   const u = req.user || (req.session && req.session.user) || null;
   const role = u && (u.role || u.role_name || (u.isAdmin ? 'admin' : null));
   const isAdmin = typeof role === 'string' && role.toLowerCase() === 'admin';
-  // editor も許可したい場合は下を有効化
+  // enable if editors should be allowed too
   // const isEditor = typeof role === 'string' && role.toLowerCase() === 'editor';
   if (isAdmin /* || isEditor */) return next();
+  if (!req.session || !req.session.user) {
+    return res.redirect('/admin/login');
+  }
   return res.status(403).send('Forbidden');
 }
 
-/* ───────────────────────── ユーティリティ ───────────────────────── */
+/* ------------------------- utilities ------------------------- */
 function slugify(input, fallback = 'item') {
   if (!input) return fallback;
   const s = String(input)
@@ -55,7 +58,7 @@ async function requireLesson(db, id) {
   return r.rows[0] || null;
 }
 
-/* ───────────────────────── 1) レッスン作成 ─────────────────────────
+/* ------------------------- 1) create lesson -------------------------
    body: { title, slug?, type: 'text'|'video' } */
 router.post('/lessons', requireAdmin, async (req, res) => {
   try {
@@ -82,7 +85,7 @@ router.post('/lessons', requireAdmin, async (req, res) => {
     const id = r.rows[0].id;
 
     if (type === 'text') {
-      await db.query(`INSERT INTO lesson_texts(lesson_id, body_md) VALUES($1,$2)`, [id, '# 新規テキスト']);
+      await db.query(`INSERT INTO lesson_texts(lesson_id, body_md) VALUES($1,$2)`, [id, '# New text']);
     } else {
       await db.query(`INSERT INTO lesson_videos(lesson_id, status) VALUES($1,'pending')`, [id]);
     }
@@ -94,7 +97,7 @@ router.post('/lessons', requireAdmin, async (req, res) => {
   }
 });
 
-/* ───────────────────────── 2) テキスト保存 (PUT) ─────────────────────────
+/* ------------------------- 2) save text (PUT) -------------------------
    body: { body_md } */
 router.put('/lessons/:id/text', requireAdmin, async (req, res) => {
   try {
@@ -122,7 +125,7 @@ router.put('/lessons/:id/text', requireAdmin, async (req, res) => {
   }
 });
 
-/* ───────────────────────── 2') テキスト保存 (PUT の代替 POST) ─────────────────────────
+/* ------------------------- 2') save text (PUT alternative POST) -------------------------
    body: { body_md } */
 router.post('/lessons/:id/text/save', requireAdmin, async (req, res) => {
   try {
@@ -150,7 +153,7 @@ router.post('/lessons/:id/text/save', requireAdmin, async (req, res) => {
   }
 });
 
-/* ───────────────────────── 3) 動画 presign ─────────────────────────
+/* ------------------------- 3) video presign -------------------------
    body: { filename, contentType?, size? } -> { url, key, expiresIn } */
 router.post('/lessons/:id/video/presign', requireAdmin, async (req, res) => {
   try {
@@ -192,7 +195,7 @@ router.post('/lessons/:id/video/presign', requireAdmin, async (req, res) => {
   }
 });
 
-/* ───────────────────────── 4) 動画アップロード完了 ─────────────────────────
+/* ------------------------- 4) video upload complete -------------------------
    body: { s3_key, size?, duration_sec? } */
 router.post('/lessons/:id/video/complete', requireAdmin, async (req, res) => {
   try {
@@ -220,7 +223,7 @@ router.post('/lessons/:id/video/complete', requireAdmin, async (req, res) => {
   }
 });
 
-/* ───────────────────────── 5) 公開/タイトル等の更新 (PATCH) ─────────────────────────
+/* ------------------------- 5) update publish/title/etc (PATCH) -------------------------
    body: { title?, slug?, published?, visibility? } */
 router.patch('/lessons/:id', requireAdmin, async (req, res) => {
   try {
@@ -258,7 +261,7 @@ router.patch('/lessons/:id', requireAdmin, async (req, res) => {
   }
 });
 
-/* ───────────────────────── 5') 公開/タイトル等の更新 (PATCH の代替 POST) ─────────────────────────
+/* ------------------------- 5') update publish/title/etc (PATCH alternative POST) -------------------------
    body: { title?, slug?, published?, visibility? } */
 router.post('/lessons/:id/publish', requireAdmin, async (req, res) => {
   try {
@@ -297,3 +300,4 @@ router.post('/lessons/:id/publish', requireAdmin, async (req, res) => {
 });
 
 module.exports = router;
+
