@@ -3,14 +3,17 @@ const express = require('express');
 const router = express.Router();
 
 function requireAdmin(req, res, next) {
-  // セッションに user && role==='admin' が入っている前提（既存ログインで user を格納）
+  // Session must contain user with role 'admin'
   if (req.session && req.session.user && req.session.user.role === 'admin') return next();
+  if (!req.session || !req.session.user) {
+    return res.redirect('/admin/login');
+  }
   return res.status(403).send('Forbidden');
 }
 
 router.get('/', requireAdmin, async (req, res) => {
-  // 最小ダッシュボード例（ユーザー件数やノーツ件数など）
-  const db = req.app.get('db'); // 既存の db 接続ハンドルを server.js で set している前提
+  // Minimal dashboard example (user count, note count)
+  const db = req.app.get('db'); // db handle is set in server.js
   let stats = { users: 0, notes: 0 };
   try {
     const u = await db.query('SELECT COUNT(*)::int AS c FROM users');
@@ -18,8 +21,9 @@ router.get('/', requireAdmin, async (req, res) => {
     stats.users = u.rows[0].c; stats.notes = n.rows[0].c;
   } catch (e) { /* noop */ }
 
-  // 追加：CSRF トークンをビューに渡す（res.locals にも入れているが明示で）
+  // Pass CSRF token to the view (explicit)
   const token = (typeof req.csrfToken === 'function') ? req.csrfToken() : '';
   res.render('admin/index', { title: 'Admin', stats, csrfToken: token });
  });
 module.exports = router;
+
