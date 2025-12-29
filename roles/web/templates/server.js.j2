@@ -113,9 +113,10 @@ try {
 }
 
 // --- リクエストスコープ共有（ルータから参照可） ---
-app.use((req, _res, next) => {
+app.use((req, res, next) => {
   req.redis = redisClient;
   req.db = pgPool;
+  res.locals.user = req.session?.user || null;
   next();
 });
 
