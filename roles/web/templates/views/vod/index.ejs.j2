@@ -1,17 +1,42 @@
-<!-- roles/web/templates/views/vod/index.ejs.j2 -->
-<main class="container">
-  <h1>🎥 Lecture Videos</h1>
-  <% if (!items.length) { %>
-    <p>まだ講義動画がありません。アップロード後に表示されます。</p>
-  <% } else { %>
-    <ul class="grid">
-      <% items.forEach(v => { %>
-        <li class="card">
-          <h3><%= v.title %></h3>
-          <p><%= v.duration || '' %></p>
-          <a href="/vod/<%= v.id %>">Play</a>
-        </li>
-      <% }) %>
-    </ul>
-  <% } %>
-</main>
+﻿<%- include('../layout', { title: '隰帷ｾｩ蜍慕判 | EduNotes', body: `
+<section class="container">
+  <div class="hero">
+    <span class="badge">隰帷ｾｩ蜍慕判</span>
+    <h1 class="hero__title">隕冶・繝ｻ荳譎ょ●豁｢繝ｻ縺吶＄蜀埼幕縲・/h1>
+    <p class="hero__subtitle">蜷・虚逕ｻ縺ｫ縺ｯ隕∫せ繝弱・繝医→繝√ぉ繝・け繝昴う繝ｳ繝医′縺ゅｊ縺ｾ縺吶・/p>
+  </div>
+
+  <div class="section">
+    <h2 class="section__title">譛譁ｰ縺ｮ蜍慕判</h2>
+    ${(!items || !items.length) ? `
+      <div class="card">
+        <p>蜍慕判縺後∪縺縺ゅｊ縺ｾ縺帙ｓ縲ょ・髢九∪縺ｧ縺雁ｾ・■縺上□縺輔＞縲・/p>
+      </div>
+    ` : `
+      <div class="grid">
+        ${items.map(v => `
+          <article class="card">
+            <div class="card__eyebrow">蜍慕判繝ｬ繝・せ繝ｳ</div>
+            <h3>${v.title}</h3>
+            <div class="meta">
+              <span>蜀咲函譎る俣: ${v.duration || '譛ｪ螳・}</span>
+              <span>HD驟堺ｿ｡</span>
+            </div>
+            <div class="progress">
+              <div class="progress__bar" style="width: 0%"></div>
+            </div>
+            <a class="btn btn--primary" href="/vod/${v.id}">蜀咲函</a>
+          </article>
+        `).join('')}
+      </div>
+    `}
+  </div>
+
+  <div class="section card">
+    <div class="card__eyebrow">蟄ｦ鄙偵ｒ邯壹￠繧・/div>
+    <h3>蜍慕判縺ｨ繝弱・繝医ｒ邨・∩蜷医ｏ縺帙ｋ縲・/h3>
+    <p class="muted">髢｢騾｣繝弱・繝医ｒ髢九＞縺ｦ縲∬ｦ∫せ繧剃ｸｦ陦後＠縺ｦ謨ｴ逅・＠縺ｾ縺励ｇ縺・・/p>
+    <a class="btn btn--ghost" href="/notes">繝弱・繝医ｒ髢九￥</a>
+  </div>
+</section>
+` }) %>

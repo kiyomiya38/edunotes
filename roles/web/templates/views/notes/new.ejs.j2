@@ -1,20 +1,26 @@
-<%- include('../layout', { body: `
-<h2>新規ノート</h2>
-<form method="post" action="/notes">
-  <input type="hidden" name="_csrf" value="${csrfToken}">
-  <label>タイトル
-    <input type="text" name="title" required>
-  </label>
-  <label>本文（Markdown）
-    <textarea name="body_md" rows="12" placeholder="# 見出し
-本文をMarkdownで書いてください"></textarea>
-  </label>
-  <label>
-    <input type="checkbox" name="is_public"> 公開する
-  </label>
-  <div style="display:flex; gap:.5rem;">
-    <button>作成</button>
-    <a href="/notes">戻る</a>
+﻿<%- include('../layout', { title: '譁ｰ隕上ヮ繝ｼ繝・| EduNotes', body: `
+<section class="container">
+  <div class="hero">
+    <span class="badge">譁ｰ隕上ヮ繝ｼ繝・/span>
+    <h1 class="hero__title">蟄ｦ繧薙□蜀・ｮｹ繧定ｨ倬鹸縲・/h1>
+    <p class="hero__subtitle">隕∫ｴ・・驥崎ｦ∬ｪ槭・谺｡縺ｮ繧｢繧ｯ繧ｷ繝ｧ繝ｳ繧呈ｮ九＠縺ｦ蠕ｩ鄙偵＠繧・☆縺上・/p>
   </div>
-</form>
-`, user, csrfToken }) %>
+
+  <div class="section card">
+    <form class="form" method="post" action="/notes">
+      <input type="hidden" name="_csrf" value="${csrfToken}">
+      <label>繧ｿ繧､繝医Ν</label>
+      <input type="text" name="title" required>
+      <label>譛ｬ譁・ｼ・arkdown・・/label>
+      <textarea name="body_md" rows="12" placeholder="# 繝ｬ繝・せ繝ｳ縺ｮ隕∫ｴ・
+- 驥崎ｦ√・繧､繝ｳ繝・- 蜈ｷ菴謎ｾ・- 谺｡縺ｮ繧｢繧ｯ繧ｷ繝ｧ繝ｳ"></textarea>
+      <label>
+        <input type="checkbox" name="is_public"> 縺薙・繝弱・繝医ｒ蜈ｬ髢九☆繧・      </label>
+      <div style="display:flex; gap:12px; flex-wrap:wrap;">
+        <button class="btn btn--primary" type="submit">菫晏ｭ・/button>
+        <a class="btn btn--ghost" href="/notes">繧ｭ繝｣繝ｳ繧ｻ繝ｫ</a>
+      </div>
+    </form>
+  </div>
+</section>
+` }) %>

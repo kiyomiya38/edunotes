@@ -567,6 +567,14 @@
     group: www-data
     mode: "0755"
 
+- name: Deploy styles.css
+  ansible.builtin.template:
+    src: styles.css.j2
+    dest: /opt/edunotes/public/styles.css
+    owner: www-data
+    group: www-data
+    mode: "0644"
+
 - name: Deploy uploader page
   ansible.builtin.template:
     src: uploader.html.j2

@@ -1,18 +1,11 @@
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8"/>
-  <title><%= title %></title>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <style>
-    body{font-family:system-ui,-apple-system,Segoe UI,Roboto;max-width:960px;margin:24px auto;padding:0 16px}
-    pre{background:#f6f8fa;padding:12px;overflow:auto}
-    code{font-family:ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",Menlo,monospace}
-  </style>
-</head>
-<body>
-  <h1><%= title %></h1>
-  <div><%- html %></div>
-  <p><a href="/docs">← 一覧に戻る</a></p>
-</body>
-</html>
+﻿<%- include('../layout', { title: `${title} | EduNotes`, body: `
+<section class="container">
+  <div class="card">
+    <a class="muted" href="/docs">繧ｬ繧､繝我ｸ隕ｧ縺ｸ謌ｻ繧・/a>
+    <h1 class="hero__title" style="font-size:2.2rem">${title}</h1>
+    <div class="note-content" style="margin-top:16px;">
+      ${html}
+    </div>
+  </div>
+</section>
+` }) %>

@@ -1,35 +1,72 @@
-<!DOCTYPE html><html lang="ja"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>EduNotes</title>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.css">
-</head><body>
-<header>
-  <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
-    <h1 style="margin:0;"><a href="/notes" style="text-decoration:none;">EduNotes</a></h1>
+﻿<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title><%= title || "EduNotes" %></title>
+  <meta name="csrf-token" content="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body class="site">
+  <header class="topbar">
+    <div class="container topbar__inner">
+      <a class="brand" href="/">
+        <span class="brand__mark">EN</span>
+        <span class="brand__name">EduNotes</span>
+        <span class="brand__tag">蟄ｦ縺ｳ繧貞刈騾・/span>
+      </a>
 
-    <!-- 追加: ナビ（常に表示） -->
-    <nav style="display:flex;gap:12px;align-items:center;">
-      <a href="/" style="text-decoration:none;">🏠 Home</a>
-      <a href="/notes" style="text-decoration:none;">📝 Notes</a>
-      <a href="/docs" style="text-decoration:none;">📚 Docs</a>
-      <a href="/courses" style="text-decoration:none;">🎓 Courses</a>
-      <a href="/vod" style="text-decoration:none;">🎬 VOD</a>
-    </nav>
+      <nav class="nav">
+        <a href="/courses">繧ｳ繝ｼ繧ｹ</a>
+        <a href="/vod">隰帷ｾｩ蜍慕判</a>
+        <a href="/notes">繝弱・繝・/a>
+        <a href="/docs">繧ｬ繧､繝・/a>
+      </nav>
 
-    <% if (user) { %>
-      <div>
-        <span style="margin-right:8px;">👤 <%= user.email %></span>
-        <form method="post" action="/logout" style="display:inline;">
-          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-          <button>Logout</button>
+      <div class="topbar__actions">
+        <form class="search" method="get" action="/courses">
+          <input type="search" name="q" placeholder="繧ｳ繝ｼ繧ｹ繝ｻ繝弱・繝医・隰帛ｸｫ繧呈､懃ｴ｢">
         </form>
+
+        <% if (user) { %>
+          <div class="user-pill">
+            <span class="user-pill__email"><%= user.email %></span>
+            <form method="post" action="/logout">
+              <input type="hidden" name="_csrf" value="<%= csrfToken || '' %>">
+              <button class="btn btn--ghost" type="submit">繝ｭ繧ｰ繧｢繧ｦ繝・/button>
+            </form>
+          </div>
+        <% } else { %>
+          <a class="btn btn--ghost" href="/login">繝ｭ繧ｰ繧､繝ｳ</a>
+          <a class="btn btn--primary" href="/signup">譁ｰ隕冗匳骭ｲ</a>
+        <% } %>
       </div>
-    <% } %>
-  </div>
-</header>
-<main><%- body %></main>
-<footer style="margin-top:48px; font-size:0.9em; opacity:.7;">
-  <hr>
-  <p>© EduNotes</p>
-</footer>
-</body></html>
+    </div>
+  </header>
+
+  <main class="main">
+    <%- body %>
+  </main>
+
+  <footer class="footer">
+    <div class="container footer__inner">
+      <div>
+        <div class="brand brand--footer">
+          <span class="brand__mark">EN</span>
+          <span class="brand__name">EduNotes</span>
+        </div>
+        <p class="muted">蟄ｦ鄙堤ｿ呈・繧呈紛縺医√ヮ繝ｼ繝医ｒ谿九＠縲√さ繝ｼ繧ｹ繧貞ｮ瑚ｵｰ縺吶ｋ縺溘ａ縺ｮ蝣ｴ謇縲・/p>
+      </div>
+      <div class="footer__links">
+        <a href="/courses">繧ｳ繝ｼ繧ｹ荳隕ｧ</a>
+        <a href="/notes">縺ゅ↑縺溘・繝弱・繝・/a>
+        <a href="/docs">蟄ｦ鄙偵ぎ繧､繝・/a>
+        <a href="/admin">隰帛ｸｫ繧ｹ繧ｿ繧ｸ繧ｪ</a>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

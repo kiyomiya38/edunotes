@@ -1,253 +1,219 @@
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8"/>
-  <title><%= title || "管理ダッシュボード" %></title>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <meta name="csrf-token" content="<%= (typeof csrfToken !== 'undefined' ? csrfToken : (typeof csrfToken !== 'undefined' ? csrfToken : (typeof csrfToken !== 'undefined' ? csrfToken : ''))) %>">
-  <style>
-    body { font-family: system-ui,-apple-system,Segoe UI,Roboto; max-width: 980px; margin: 24px auto; padding: 0 16px; line-height: 1.6; }
-    h1 { margin-bottom:.5rem; }
-    ul { list-style: disc; padding-left: 1.5em; }
-    a { color:#06c; text-decoration:none } a:hover{ text-decoration:underline }
-    section { margin-top:2rem }
-    form { border:1px solid #e5e7eb; border-radius:10px; padding:16px; margin-top:.75rem }
-    form h3{ margin:0 0 .5rem 0 }
-    label{ display:block; margin:.55rem 0 .25rem; font-weight:600 }
-    input[type=text]{ width:100%; max-width:560px; padding:.5rem; border:1px solid #cbd5e1; border-radius:8px }
-    input[type=file], textarea{ width:100%; max-width:560px }
-    textarea{ min-height:160px; padding:.5rem; border:1px solid #cbd5e1; border-radius:8px }
-    .row{ display:flex; gap:12px; align-items:center; flex-wrap:wrap }
-    .btn{ display:inline-block; padding:.55rem .9rem; border:1px solid #cbd5e1; border-radius:8px; background:#f8fafc; cursor:pointer }
-    .btn.primary{ background:#0a66ff; color:#fff; border-color:#0a66ff }
-    .muted{ color:#64748b; font-size:.95rem }
-    .ok{ color:#067d00 } .err{ color:#c00 }
-    progress{ width: 320px; height: 10px; }
-    .tips{ font-size:.9rem; color:#475569 }
-  </style>
-</head>
-<body>
-  <!-- 追加: 共通ナビ（管理画面にも Home を） -->
-  <nav style="padding:10px 14px;border-bottom:1px solid #eee;display:flex;gap:12px;align-items:center;">
-    <a href="/" style="text-decoration:none;font-weight:600;">🏠 Home</a>
-    <a href="/admin" style="text-decoration:none;">管理トップ</a>
-  </nav>
+﻿<%- include('../layout', { title: '隰帛ｸｫ繧ｹ繧ｿ繧ｸ繧ｪ | EduNotes', body: `
+<section class="container">
+  <div class="hero">
+    <span class="badge">隰帛ｸｫ繧ｹ繧ｿ繧ｸ繧ｪ</span>
+    <h1 class="hero__title">謨呎攝繧貞ｮ牙ｿ・＠縺ｦ蜈ｬ髢九・/h1>
+    <p class="hero__subtitle">繝・く繧ｹ繝医→蜍慕判繧剃ｽ懈・縺励∫洒譎る俣縺ｧ蜈ｬ髢九〒縺阪∪縺吶・/p>
+  </div>
 
-  <h1>管理ダッシュボード</h1>
+  <div class="section grid">
+    <div class="card">
+      <div class="card__eyebrow">讎りｦ・/div>
+      <h3>蜿苓ｬ幄・焚</h3>
+      <p style="font-size:2rem; margin:0;">${stats.users}</p>
+      <p class="muted">蜈ｨ繧ｳ繝ｼ繧ｹ縺ｮ蜿苓ｬ幄・焚縲・/p>
+    </div>
+    <div class="card">
+      <div class="card__eyebrow">繝弱・繝・/div>
+      <h3>菴懈・縺輔ｌ縺溘ヮ繝ｼ繝・/h3>
+      <p style="font-size:2rem; margin:0;">${stats.notes}</p>
+      <p class="muted">蜿苓ｬ幄・′菴懈・縺励◆蟄ｦ鄙偵ヮ繝ｼ繝医・/p>
+    </div>
+    <div class="card">
+      <div class="card__eyebrow">繝ｪ繝ｳ繧ｯ</div>
+      <p><a href="/courses">繧ｳ繝ｼ繧ｹ荳隕ｧ</a></p>
+      <p><a href="/vod">蜍慕判荳隕ｧ</a></p>
+      <p><a href="/docs">蟄ｦ鄙偵ぎ繧､繝・/a></p>
+    </div>
+  </div>
 
-  <ul>
-    <li>ユーザー数: <strong><%= stats.users %></strong></li>
-    <li>ノート数: <strong><%= stats.notes %></strong></li>
-  </ul>
+  <div class="section split">
+    <div class="card">
+      <div class="card__eyebrow">繝・く繧ｹ繝域蕗譚・/div>
+      <h2>Markdown謨呎攝繧偵い繝・・繝ｭ繝ｼ繝・/h2>
+      <form id="form-text" class="form">
+        <label for="t-title">繧ｿ繧､繝医Ν</label>
+        <input id="t-title" type="text" placeholder="萓・ 隨ｬ1遶 繧､繝ｳ繝医Ο" required>
 
-  <p><a href="/docs">→ 受講マニュアル (/docs)</a></p>
+        <label for="t-slug">繧ｹ繝ｩ繝・げ</label>
+        <input id="t-slug" type="text" placeholder="intro-1">
 
-  <section>
-    <h2>教材管理（受講者向けページ）</h2>
-    <ul>
-      <li><a href="/courses">📘 教材テキスト一覧</a></li>
-      <li><a href="/vod">🎥 講義動画一覧</a></li>
-    </ul>
-  </section>
+        <label for="t-file">Markdown繝輔ぃ繧､繝ｫ (.md)</label>
+        <input id="t-file" type="file" accept=".md,text/markdown,text/plain" required>
 
-  <section>
-    <h2>ローカルファイルからアップロード（ミニフォーム）</h2>
+        <label>
+          <input id="t-publish" type="checkbox" checked> 蜿苓ｬ幄・↓蜈ｬ髢九☆繧・        </label>
 
-    <!-- 1) テキスト教材：.md を読んで本文として保存 -->
-    <form id="form-text">
-      <h3>📘 テキスト（Markdown）アップロード</h3>
+        <div style="display:flex; gap:12px; flex-wrap:wrap;">
+          <button class="btn btn--primary" type="submit">菴懈・縺吶ｋ</button>
+          <span id="t-msg" class="muted"></span>
+        </div>
+      </form>
+    </div>
 
-      <label for="t-title">タイトル</label>
-      <input id="t-title" type="text" placeholder="例）第1回 イントロ" required />
+    <div class="card">
+      <div class="card__eyebrow">蜍慕判謨呎攝</div>
+      <h2>MP4蜍慕判繧偵い繝・・繝ｭ繝ｼ繝・/h2>
+      <form id="form-video" class="form">
+        <label for="v-title">繧ｿ繧､繝医Ν</label>
+        <input id="v-title" type="text" placeholder="萓・ 隨ｬ1遶 隰帷ｾｩ蜍慕判" required>
 
-      <label for="t-slug">スラッグ（URL識別子）</label>
-      <input id="t-slug" type="text" placeholder="例）intro-1" />
+        <label for="v-slug">繧ｹ繝ｩ繝・げ</label>
+        <input id="v-slug" type="text" placeholder="video-1">
 
-      <label for="t-file">Markdown ファイル（.md）</label>
-      <input id="t-file" type="file" accept=".md,text/markdown,text/plain" required />
+        <label for="v-file">蜍慕判繝輔ぃ繧､繝ｫ (.mp4)</label>
+        <input id="v-file" type="file" accept="video/mp4" required>
 
-      <div class="row" style="margin-top:.5rem">
-        <label class="row" style="font-weight:normal">
-          <input id="t-publish" type="checkbox" checked /> 公開する（受講者に表示）
-        </label>
-        <button class="btn primary" type="submit">アップロードして作成</button>
-        <span id="t-msg" class="muted"></span>
-      </div>
-      <p class="tips">作成後は <code>/courses</code> に表示されます。</p>
-    </form>
+        <div style="display:flex; gap:12px; flex-wrap:wrap;">
+          <button class="btn btn--primary" type="submit">繧｢繝・・繝ｭ繝ｼ繝・/button>
+          <progress id="v-progress" value="0" max="100" style="display:none"></progress>
+          <span id="v-msg" class="muted"></span>
+        </div>
+      </form>
+    </div>
+  </div>
+</section>
 
-    <!-- 2) 動画レッスン：mp4 を S3 直PUT（事前署名） -->
-    <form id="form-video">
-      <h3>🎥 動画（MP4）アップロード</h3>
+<script>
+  const CSRF = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+  const jsonHeaders = () => ({ 'Content-Type':'application/json', 'X-CSRF-Token': CSRF });
 
-      <label for="v-title">タイトル</label>
-      <input id="v-title" type="text" placeholder="例）第1回 講義動画" required />
+  async function postJSON(url, body) {
+    const r = await fetch(url, { method:'POST', headers: jsonHeaders(), body: JSON.stringify(body), credentials:'same-origin' });
+    if (!r.ok) throw new Error(await r.text());
+    return r.json();
+  }
+  async function putJSON(url, body) {
+    const r = await fetch(url, { method:'PUT', headers: jsonHeaders(), body: JSON.stringify(body), credentials:'same-origin' });
+    if (!r.ok) throw new Error(await r.text());
+    return r.json();
+  }
+  async function patchJSON(url, body) {
+    const r = await fetch(url, { method:'PATCH', headers: jsonHeaders(), body: JSON.stringify(body), credentials:'same-origin' });
+    if (!r.ok) throw new Error(await r.text());
+    return r.json();
+  }
 
-      <label for="v-slug">スラッグ（URL識別子）</label>
-      <input id="v-slug" type="text" placeholder="例）video-1" />
+  function makeSlug(input, fallback) {
+    const base = String(input || '')
+      .normalize('NFKD')
+      .replace(/[\\u0300-\\u036f]/g, '')
+      .replace(/[^\\w\\s-]/g, ' ')
+      .replace(/[_\\s]+/g, '-')
+      .toLowerCase()
+      .replace(/-+/g, '-')
+      .replace(/^-+|-+$/g, '');
+    return (base || fallback).slice(0, 80);
+  }
 
-      <label for="v-file">動画ファイル（.mp4）</label>
-      <input id="v-file" type="file" accept="video/mp4" required />
+  const tTitle = document.getElementById('t-title');
+  const tSlug  = document.getElementById('t-slug');
+  const tFile  = document.getElementById('t-file');
+  tTitle?.addEventListener('input', () => { if (!tSlug.value.trim()) tSlug.value = makeSlug(tTitle.value, 'text'); });
+  tFile?.addEventListener('change', () => {
+    if (!tSlug.value.trim() && tFile.files[0]) tSlug.value = makeSlug(tFile.files[0].name.replace(/\\.[^.]+$/, ''), 'text');
+  });
 
-      <div class="row" style="margin-top:.5rem">
-        <button class="btn primary" type="submit">アップロードして作成</button>
-        <progress id="v-progress" value="0" max="100" style="display:none"></progress>
-        <span id="v-msg" class="muted"></span>
-      </div>
-      <p class="tips">アップロード完了後に自動で公開します（受講者は <code>/vod</code> から再生）。</p>
-    </form>
-  </section>
+  const vTitle = document.getElementById('v-title');
+  const vSlug  = document.getElementById('v-slug');
+  const vFile  = document.getElementById('v-file');
+  vTitle?.addEventListener('input', () => { if (!vSlug.value.trim()) vSlug.value = makeSlug(vTitle.value, 'video'); });
+  vFile?.addEventListener('change', () => {
+    if (!vSlug.value.trim() && vFile.files[0]) vSlug.value = makeSlug(vFile.files[0].name.replace(/\\.[^.]+$/, ''), 'video');
+  });
 
-  <script>
-    // CSRF ヘッダ
-    const CSRF = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
-    const jsonHeaders = () => ({ 'Content-Type':'application/json', 'X-CSRF-Token': CSRF });
+  document.getElementById('form-text').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const msg = document.getElementById('t-msg');
+    msg.className = 'muted';
+    msg.textContent = '菴懈・荳ｭ...';
+    try {
+      const title = tTitle.value.trim();
+      const slugInput = tSlug.value.trim();
+      const file  = tFile.files[0];
+      const pub   = document.getElementById('t-publish').checked;
+      if (!file) throw new Error('Markdown繝輔ぃ繧､繝ｫ繧帝∈謚槭＠縺ｦ縺上□縺輔＞');
 
-    async function postJSON(url, body) {
-      const r = await fetch(url, { method:'POST', headers: jsonHeaders(), body: JSON.stringify(body), credentials:'same-origin' });
-      if (!r.ok) throw new Error(await r.text());
-      return r.json();
-    }
-    async function putJSON(url, body) {
-      const r = await fetch(url, { method:'PUT', headers: jsonHeaders(), body: JSON.stringify(body), credentials:'same-origin' });
-      if (!r.ok) throw new Error(await r.text());
-      return r.json();
-    }
-    async function patchJSON(url, body) {
-      const r = await fetch(url, { method:'PATCH', headers: jsonHeaders(), body: JSON.stringify(body), credentials:'same-origin' });
-      if (!r.ok) throw new Error(await r.text());
-      return r.json();
-    }
+      const body_md = await new Promise((res, rej) => {
+        const fr = new FileReader();
+        fr.onerror = () => rej(new Error('繝輔ぃ繧､繝ｫ縺ｮ隱ｭ縺ｿ霎ｼ縺ｿ縺ｫ螟ｱ謨励＠縺ｾ縺励◆'));
+        fr.onload  = () => res(String(fr.result || ''));
+        fr.readAsText(file, 'utf-8');
+      });
 
-    // スラッグ自動生成
-    function makeSlug(input, fallback = 'item') {
-      const base = String(input || '')
-        .normalize('NFKD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .replace(/[^\w\s-]/g, ' ')
-        .replace(/[_\s]+/g, '-')
-        .toLowerCase()
-        .replace(/-+/g, '-')
-        .replace(/^-+|-+$/g, '');
-      return (base || fallback).slice(0, 80);
-    }
+      const slug = slugInput || makeSlug(title || (file?.name.replace(/\\.[^.]+$/, '') || 'text'), 'text');
 
-    // テキスト：タイトル/ファイルから自動補完
-    const tTitle = document.getElementById('t-title');
-    const tSlug  = document.getElementById('t-slug');
-    const tFile  = document.getElementById('t-file');
-    tTitle?.addEventListener('input', () => { if (!tSlug.value.trim()) tSlug.value = makeSlug(tTitle.value); });
-    tFile?.addEventListener('change', () => {
-      if (!tSlug.value.trim() && tFile.files[0]) tSlug.value = makeSlug(tFile.files[0].name.replace(/\.[^.]+$/, ''), 'text');
-    });
-
-    // 動画：タイトル/ファイルから自動補完
-    const vTitle = document.getElementById('v-title');
-    const vSlug  = document.getElementById('v-slug');
-    const vFile  = document.getElementById('v-file');
-    vTitle?.addEventListener('input', () => { if (!vSlug.value.trim()) vSlug.value = makeSlug(vTitle.value); });
-    vFile?.addEventListener('change', () => {
-      if (!vSlug.value.trim() && vFile.files[0]) vSlug.value = makeSlug(vFile.files[0].name.replace(/\.[^.]+$/, ''), 'video');
-    });
-
-    // ===== 1) テキスト（.md） =====
-    document.getElementById('form-text').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const msg = document.getElementById('t-msg');
-      msg.className = 'muted';
-      msg.textContent = '作成中…';
-      try {
-        const title = tTitle.value.trim();
-        const slugInput = tSlug.value.trim();
-        const file  = tFile.files[0];
-        const pub   = document.getElementById('t-publish').checked;
-        if (!file) throw new Error('Markdownファイルを選択してください');
-
-        const body_md = await new Promise((res, rej) => {
-          const fr = new FileReader();
-          fr.onerror = () => rej(new Error('ファイル読み込みに失敗'));
-          fr.onload  = () => res(String(fr.result || ''));
-          fr.readAsText(file, 'utf-8');
-        });
-
-        const slug = slugInput || makeSlug(title || (file?.name.replace(/\.[^.]+$/, '') || 'text'));
-
-        // /api/admin ルートを使用
-        const { id } = await postJSON('/api/admin/lessons', { title, slug, type:'text' });
-        await putJSON(`/api/admin/lessons/${id}/text`, { body_md });
-        if (pub) { await postJSON(`/api/admin/lessons/${id}/publish`, { published:true, visibility:'public' }); }
-
-        msg.className = 'ok';
-        msg.textContent = `作成しました（ID: ${id}）。一覧へ移動します…`;
-        setTimeout(() => location.href = '/courses', 600);
-      } catch (err) {
-        console.error(err);
-        msg.className = 'err';
-        msg.textContent = '失敗：' + (err?.message || 'unknown');
+      const created = await postJSON('/api/admin/lessons', { title, slug, type:'text' });
+      await putJSON('/api/admin/lessons/' + created.id + '/text', { body_md });
+      if (pub) {
+        await postJSON('/api/admin/lessons/' + created.id + '/publish', { published:true, visibility:'public' });
       }
-    });
 
-    // ===== 2) 動画（mp4 → S3直PUT） =====
-    document.getElementById('form-video').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const msg = document.getElementById('v-msg');
-      const bar = document.getElementById('v-progress');
-      msg.className = 'muted';
-      msg.textContent = '作成中…';
-      try {
-        const title = vTitle.value.trim();
-        const slugInput = vSlug.value.trim();
-        const file  = vFile.files[0];
-        if (!file) throw new Error('動画ファイル（.mp4）を選択してください');
+      msg.className = 'ok';
+      msg.textContent = '菴懈・縺励∪縺励◆縲・D: ' + created.id + '縲ゅ・繝ｼ繧ｸ繧堤ｧｻ蜍輔＠縺ｾ縺・..';
+      setTimeout(() => location.href = '/courses', 600);
+    } catch (err) {
+      console.error(err);
+      msg.className = 'err';
+      msg.textContent = '螟ｱ謨励＠縺ｾ縺励◆: ' + (err?.message || '荳肴・縺ｪ繧ｨ繝ｩ繝ｼ');
+    }
+  });
 
-        const slug = slugInput || makeSlug(title || (file?.name.replace(/\.[^.]+$/, '') || 'video'));
+  document.getElementById('form-video').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const msg = document.getElementById('v-msg');
+    const bar = document.getElementById('v-progress');
+    msg.className = 'muted';
+    msg.textContent = '繧｢繝・・繝ｭ繝ｼ繝我ｸｭ...';
+    try {
+      const title = vTitle.value.trim();
+      const slugInput = vSlug.value.trim();
+      const file  = vFile.files[0];
+      if (!file) throw new Error('MP4繝輔ぃ繧､繝ｫ繧帝∈謚槭＠縺ｦ縺上□縺輔＞');
 
-        // 1) レッスン枠
-        const { id } = await postJSON('/api/admin/lessons', { title, slug, type:'video' });
+      const slug = slugInput || makeSlug(title || (file?.name.replace(/\\.[^.]+$/, '') || 'video'), 'video');
 
-        // 2) presign を取得
-        const presign = await postJSON(`/api/admin/lessons/${id}/video/presign`, {
-          filename: file.name,
-          size: file.size,
-          contentType: file.type || 'video/mp4'
-        });
+      const created = await postJSON('/api/admin/lessons', { title, slug, type:'video' });
 
-        // 3) S3 へ直PUT（進捗表示）
-        await new Promise((resolve, reject) => {
-          const xhr = new XMLHttpRequest();
-          xhr.open('PUT', presign.url);
-          xhr.setRequestHeader('Content-Type', file.type || 'video/mp4');
-          xhr.upload.onprogress = (ev) => {
-            if (ev.lengthComputable) {
-              bar.style.display = '';
-              bar.value = Math.round(ev.loaded / ev.total * 100);
-            }
-          };
-          xhr.onerror = () => reject(new Error('アップロード失敗'));
-          xhr.onload = () => (xhr.status >= 200 && xhr.status < 300) ? resolve() : reject(new Error('S3応答コード: ' + xhr.status));
-          xhr.send(file);
-        });
+      const presign = await postJSON('/api/admin/lessons/' + created.id + '/video/presign', {
+        filename: file.name,
+        size: file.size,
+        contentType: file.type || 'video/mp4'
+      });
 
-        // 4) 完了通知 + 公開
-        await postJSON(`/api/admin/lessons/${id}/video/complete`, {
-          s3_key: presign.key,
-          size: file.size,
-          duration_sec: null
-        });
-        await patchJSON(`/api/admin/lessons/${id}`, { published:true, visibility:'public' });
+      await new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('PUT', presign.url);
+        xhr.setRequestHeader('Content-Type', file.type || 'video/mp4');
+        xhr.upload.onprogress = (ev) => {
+          if (ev.lengthComputable) {
+            bar.style.display = '';
+            bar.value = Math.round(ev.loaded / ev.total * 100);
+          }
+        };
+        xhr.onerror = () => reject(new Error('繧｢繝・・繝ｭ繝ｼ繝峨↓螟ｱ謨励＠縺ｾ縺励◆'));
+        xhr.onload = () => (xhr.status >= 200 && xhr.status < 300) ? resolve() : reject(new Error('S3縺ｮ蠢懃ｭ・ ' + xhr.status));
+        xhr.send(file);
+      });
 
-        msg.className = 'ok';
-        msg.textContent = `アップロード完了・公開しました（ID: ${id}）。一覧へ移動します…`;
-        setTimeout(() => location.href = '/vod', 800);
-      } catch (err) {
-        console.error(err);
-        msg.className = 'err';
-        msg.textContent = '失敗：' + (err?.message || 'unknown');
-      } finally {
-        bar.style.display = 'none';
-        bar.value = 0;
-      }
-    });
-  </script>
-</body>
-</html>
+      await postJSON('/api/admin/lessons/' + created.id + '/video/complete', {
+        s3_key: presign.key,
+        size: file.size,
+        duration_sec: null
+      });
+      await patchJSON('/api/admin/lessons/' + created.id, { published:true, visibility:'public' });
+
+      msg.className = 'ok';
+      msg.textContent = '繧｢繝・・繝ｭ繝ｼ繝牙ｮ御ｺ・・D: ' + created.id + '縲ゅ・繝ｼ繧ｸ繧堤ｧｻ蜍輔＠縺ｾ縺・..';
+      setTimeout(() => location.href = '/vod', 800);
+    } catch (err) {
+      console.error(err);
+      msg.className = 'err';
+      msg.textContent = '螟ｱ謨励＠縺ｾ縺励◆: ' + (err?.message || '荳肴・縺ｪ繧ｨ繝ｩ繝ｼ');
+    } finally {
+      bar.style.display = 'none';
+      bar.value = 0;
+    }
+  });
+</script>
+` }) %>

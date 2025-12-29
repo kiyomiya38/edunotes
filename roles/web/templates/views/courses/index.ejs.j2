@@ -1,17 +1,54 @@
-<!-- roles/web/templates/views/courses/index.ejs.j2 -->
-<main class="container">
-  <h1>📚 Courses</h1>
-  <% if (!courses.length) { %>
-    <p>まだコースがありません。管理画面から作成してください。</p>
-  <% } else { %>
-    <ul class="grid">
-      <% courses.forEach(c => { %>
-        <li class="card">
-          <h3><%= c.title %></h3>
-          <p><%= c.summary || '' %></p>
-          <a href="/courses/<%= c.id %>">Open</a>
-        </li>
-      <% }) %>
-    </ul>
-  <% } %>
-</main>
+﻿<%- include('../layout', { title: '繧ｳ繝ｼ繧ｹ | EduNotes', body: `
+<section class="container">
+  <div class="hero">
+    <span class="badge">繧ｳ繝ｼ繧ｹ荳隕ｧ</span>
+    <h1 class="hero__title">蟄ｦ鄙偵ヱ繧ｹ繧帝∈縺ｶ縲・/h1>
+    <p class="hero__subtitle">遏ｭ縺・Ξ繝・せ繝ｳ縺ｨ隰帛ｸｫ繝弱・繝医〒縲・ｲ謐励ｒ菫昴■縺ｪ縺後ｉ蟄ｦ縺ｹ縺ｾ縺吶・/p>
+  </div>
+
+  <div class="section">
+    <h2 class="section__title">豕ｨ逶ｮ縺ｮ繧ｳ繝ｼ繧ｹ</h2>
+    ${(!courses || !courses.length) ? `
+      <div class="card">
+        <p>繧ｳ繝ｼ繧ｹ縺後∪縺縺ゅｊ縺ｾ縺帙ｓ縲ょ・髢九∪縺ｧ縺雁ｾ・■縺上□縺輔＞縲・/p>
+      </div>
+    ` : `
+      <div class="grid">
+        ${courses.map(c => `
+          <article class="card">
+            <div class="card__eyebrow">繝・く繧ｹ繝医さ繝ｼ繧ｹ</div>
+            <h3>${c.title}</h3>
+            <p class="muted">${c.summary || '隕∫せ縺ｨ縺ｾ縺ｨ繧√ｒ謨ｴ逅・＠縺溘Ξ繝・せ繝ｳ縺ｧ蟄ｦ鄙偵ｒ繧ｵ繝昴・繝医＠縺ｾ縺吶・}</p>
+            <div class="meta">
+              <span>隰帛ｸｫ: 繧ｳ繧｢繝√・繝</span>
+              <span>蜈ｨ8繝ｬ繝・せ繝ｳ</span>
+            </div>
+            <div>
+              <span class="badge">繧ｹ繧ｿ繝ｼ繝・/span>
+            </div>
+            <div class="progress">
+              <div class="progress__bar" style="width: 0%"></div>
+            </div>
+            <a class="btn btn--primary" href="/courses/${c.id}">髢九￥</a>
+          </article>
+        `).join('')}
+      </div>
+    `}
+  </div>
+
+  <div class="section split">
+    <div class="card">
+      <div class="card__eyebrow">蟄ｦ鄙偵ヨ繝ｩ繝・け</div>
+      <h3>逶ｮ讓吶↓蜷医▲縺溷ｭｦ鄙定ｨ育判繧剃ｽ懊ｋ縲・/h3>
+      <p class="muted">繧ｫ繝ｪ繧ｭ繝･繝ｩ繝縺ｫ豐ｿ縺｣縺ｦ谺｡縺ｮ繝ｬ繝・せ繝ｳ繧堤｢ｺ隱阪〒縺阪∪縺吶・/p>
+      <a class="btn btn--ghost" href="/docs">蟄ｦ鄙偵ぎ繧､繝峨ｒ隕九ｋ</a>
+    </div>
+    <div class="card">
+      <div class="card__eyebrow">隰帛ｸｫ邏ｹ莉・/div>
+      <h3>逕ｰ荳ｭ繧｢繝ｬ繝・け繧ｹ</h3>
+      <p class="muted">繧ｯ繝ｩ繧ｦ繝峨い繝ｼ繧ｭ繝・け繝医ら樟蝣ｴ縺ｮ繝ｯ繝ｼ繧ｯ繝輔Ο繝ｼ繧帝㍾隕悶＠縺溯ｬ帷ｾｩ縲・/p>
+      <span class="badge">鬮倩ｩ穂ｾ｡</span>
+    </div>
+  </div>
+</section>
+` }) %>

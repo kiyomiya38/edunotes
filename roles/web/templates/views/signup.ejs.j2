@@ -1,11 +1,40 @@
-<%- include('layout', { body: `
-<h2>新規登録</h2>
-${error ? `<p style="color:red">${error}</p>` : '' }
-<form method="post" action="/signup">
-  <input type="hidden" name="_csrf" value="${csrfToken}">
-  <label>Email <input name="email" type="email" required></label>
-  <label>Password <input name="password" type="password" required minlength="6"></label>
-  <button>登録する</button>
-</form>
-<p><a href="/login">ログインに戻る</a></p>
-`, user, csrfToken }) %>
+﻿<%- include('layout', { title: '譁ｰ隕冗匳骭ｲ | EduNotes', body: `
+<section class="container">
+  <div class="hero">
+    <span class="badge">蟄ｦ鄙偵ｒ蟋九ａ繧・/span>
+    <h1 class="hero__title">蟄ｦ鄙堤ｿ呈・繧呈紛縺医ｋ縲・/h1>
+    <p class="hero__subtitle">繝ｬ繝・せ繝ｳ縲・ｲ謐励√ヮ繝ｼ繝医ｒ荳縺､縺ｮ豬√ｌ縺ｧ邂｡逅・＠縺ｾ縺吶・/p>
+  </div>
+
+  <div class="section split">
+    <div class="card">
+      <div class="card__eyebrow">縺ｧ縺阪ｋ縺薙→</div>
+      <h2>繧ｳ繝ｼ繧ｹ螳瑚ｵｰ縺ｫ蠢・ｦ√↑讖溯・繧偵☆縺ｹ縺ｦ縲・/h2>
+      <ul class="meta">
+        <li>蟄ｦ鄙偵ム繝・す繝･繝懊・繝・/li>
+        <li>繧ｿ繧ｰ莉倥″繝弱・繝医→繧ｳ繝｡繝ｳ繝・/li>
+        <li>繝ｬ繝・せ繝ｳ縺斐→縺ｮ騾ｲ謐礼｢ｺ隱・/li>
+        <li>VOD縺ｸ縺吶＄繧｢繧ｯ繧ｻ繧ｹ</li>
+      </ul>
+      <div class="card">
+        <strong>蟄ｦ鄙偵・邏・據</strong>
+        <p class="muted">蠕ｩ鄙偵＠繧・☆縺・∪縺ｨ繧√→隕∫せ繧堤畑諢上＠縺ｾ縺吶・/p>
+      </div>
+    </div>
+
+    <div class="auth-card">
+      <h2>繧｢繧ｫ繧ｦ繝ｳ繝井ｽ懈・</h2>
+      ${error ? `<p style="color:#c00">${error}</p>` : ''}
+      <form class="form" method="post" action="/signup">
+        <input type="hidden" name="_csrf" value="${csrfToken}">
+        <label>繝｡繝ｼ繝ｫ繧｢繝峨Ξ繧ｹ</label>
+        <input name="email" type="email" required>
+        <label>繝代せ繝ｯ繝ｼ繝・/label>
+        <input name="password" type="password" required minlength="6">
+        <button class="btn btn--primary" type="submit">逋ｻ骭ｲ縺吶ｋ</button>
+      </form>
+      <p class="muted">縺吶〒縺ｫ繧｢繧ｫ繧ｦ繝ｳ繝医ｒ縺頑戟縺｡縺ｮ譁ｹ縺ｯ <a href="/login">繝ｭ繧ｰ繧､繝ｳ</a></p>
+    </div>
+  </div>
+</section>
+` }) %>

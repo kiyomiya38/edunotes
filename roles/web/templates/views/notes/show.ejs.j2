@@ -1,60 +1,57 @@
-<%- include('../layout', { body: `
-<a href="/notes">← 一覧へ戻る</a>
-<h2 style="margin-bottom:0.2rem;">${n.title}</h2>
-<p style="margin-top:0; opacity:.8;">
-  by ${n.author_email}
-  ／ 作成: ${new Date(n.created_at).toLocaleString()}
-  ／ 更新: ${new Date(n.updated_at).toLocaleString()}
-  ${n.is_public ? ' ／ 🌐 公開' : ''}
-</p>
+﻿<%- include('../layout', { title: `${n.title} | EduNotes`, body: `
+<section class="container">
+  <div class="card">
+    <a class="muted" href="/notes">繝弱・繝井ｸ隕ｧ縺ｸ謌ｻ繧・/a>
+    <h1 class="hero__title" style="font-size:2.2rem">${n.title}</h1>
+    <div class="meta">
+      <span>菴懈・閠・ ${n.author_email}</span>
+      <span>菴懈・譌･: ${new Date(n.created_at).toLocaleString()}</span>
+      <span>譖ｴ譁ｰ譌･: ${new Date(n.updated_at).toLocaleString()}</span>
+      ${n.is_public ? '<span class="badge">蜈ｬ髢・/span>' : ''}
+    </div>
+    <div class="note-content">
+      ${n.body_html}
+    </div>
+    <div style="margin-top:16px;">
+      <a class="btn btn--ghost" href="/notes/${n.id}/edit">繝弱・繝医ｒ邱ｨ髮・/a>
+    </div>
+  </div>
 
-<section>
-  <h3>本文</h3>
-  <article style="border:1px solid #ddd; padding:1rem; border-radius:.5rem;">
-    ${n.body_html}
-  </article>
+  <div class="section split">
+    <div class="card">
+      <h2>繧ｿ繧ｰ</h2>
+      ${tags && tags.length ? `
+        <div class="pill-group">
+          ${tags.map(t => `<span class="badge">#${t.name}</span>`).join(' ')}
+        </div>
+      ` : `<p class="muted">繧ｿ繧ｰ縺ｯ縺ｾ縺縺ゅｊ縺ｾ縺帙ｓ縲・/p>`}
+      <form class="form" method="post" action="/notes/${n.id}/tags">
+        <input type="hidden" name="_csrf" value="${csrfToken}">
+        <label>繧ｿ繧ｰ繧定ｿｽ蜉</label>
+        <input name="name" placeholder="萓・ 繝・・繧ｿ繝吶・繧ｹ">
+        <button class="btn btn--ghost" type="submit">霑ｽ蜉</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2>繧ｳ繝｡繝ｳ繝・/h2>
+      ${comments && comments.length ? `
+        <ul>
+          ${comments.map(c => `
+            <li style="margin-bottom:16px;">
+              <div class="meta">${c.author_email} ﾂｷ ${new Date(c.created_at).toLocaleString()}</div>
+              <div class="note-content">${c.body_html}</div>
+            </li>
+          `).join('')}
+        </ul>
+      ` : `<p class="muted">繧ｳ繝｡繝ｳ繝医・縺ｾ縺縺ゅｊ縺ｾ縺帙ｓ縲・/p>`}
+      <form class="form" method="post" action="/notes/${n.id}/comments">
+        <input type="hidden" name="_csrf" value="${csrfToken}">
+        <label>繧ｳ繝｡繝ｳ繝医ｒ譖ｸ縺擾ｼ・arkdown・・/label>
+        <textarea name="body_md" rows="5" placeholder="豌励▼縺阪ｄ雉ｪ蝠上ｒ譖ｸ縺阪∪縺励ｇ縺・.."></textarea>
+        <button class="btn btn--primary" type="submit">繧ｳ繝｡繝ｳ繝医☆繧・/button>
+      </form>
+    </div>
+  </div>
 </section>
-
-<section>
-  <h3>タグ</h3>
-  ${tags && tags.length ? `
-    <p>${tags.map(t => `<span style="display:inline-block; padding:.1rem .5rem; border:1px solid #ccc; border-radius:999px; margin:.1rem;">#${t.name}</span>`).join(' ')}</p>
-  ` : `<p>（タグなし）</p>`}
-
-  <form method="post" action="/notes/${n.id}/tags" style="display:flex; gap:.5rem; align-items:center;">
-    <input type="hidden" name="_csrf" value="${csrfToken}">
-    <input name="name" placeholder="タグ名を入力">
-    <button>追加</button>
-  </form>
-</section>
-
-<section>
-  <h3>コメント</h3>
-  ${comments && comments.length ? `
-    <ul>
-      ${comments.map(c => `
-        <li>
-          <div style="opacity:.8; font-size:.95em;">
-            ${c.author_email} ／ ${new Date(c.created_at).toLocaleString()}
-          </div>
-          <div style="border-left:3px solid #ddd; padding-left:.75rem; margin:.25rem 0 1rem;">
-            <div>${c.body_html}</div>
-          </div>
-        </li>
-      `).join('')}
-    </ul>
-  ` : `<p>まだコメントはありません。</p>`}
-
-  <form method="post" action="/notes/${n.id}/comments">
-    <input type="hidden" name="_csrf" value="${csrfToken}">
-    <label>コメント（Markdown）
-      <textarea name="body_md" rows="6" placeholder="コメントをMarkdownで入力"></textarea>
-    </label>
-    <button>コメント投稿</button>
-  </form>
-</section>
-
-<p style="margin-top:1.5rem;">
-  <a href="/notes/${n.id}/edit">✏️ 編集</a>
-</p>
-`, user, csrfToken }) %>
+` }) %>

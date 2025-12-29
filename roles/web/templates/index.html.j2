@@ -1,53 +1,115 @@
-<!-- roles/web/templates/index.html.j2 -->
-<!doctype html><html lang="ja"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>EduNotes — Home</title>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.css">
-<style>
-  .grid{display:grid;gap:1rem;grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
-  .card{border:1px solid #ddd;padding:1rem;border-radius:.75rem}
-  .muted{opacity:.7}
-</style>
-</head><body>
-<h1>EduNotes</h1>
-<p class="muted">ようこそ。利用したいサービスを選んでください。</p>
+﻿<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>繝帙・繝 | EduNotes</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body class="site">
+  <header class="topbar">
+    <div class="container topbar__inner">
+      <a class="brand" href="/">
+        <span class="brand__mark">EN</span>
+        <span class="brand__name">EduNotes</span>
+        <span class="brand__tag">蟄ｦ縺ｳ繧貞刈騾・/span>
+      </a>
 
-<div class="grid">
-  <div class="card">
-    <h3>📝 Notes</h3>
-    <p>ノート作成・タグ付け・コメント。</p>
-    <p><a href="/notes">Open</a></p>
-  </div>
-  <div class="card">
-    <h3>📦 S3 Uploader</h3>
-    <p>ファイルをオブジェクトストレージにアップロード。</p>
-    <p><a href="/uploader.html">Open</a></p>
-  </div>
-  <div class="card">
-    <h3>📚 Courses</h3>
-    <p>講義テキストをセクション・レッスンごとに閲覧。</p>
-    <p><a href="/courses">Open</a></p>
-  </div>
-  <div class="card">
-    <h3>🎥 Lecture Videos</h3>
-    <p>講義動画（HLS）をブラウザで視聴。</p>
-    <p><a href="/vod">Open</a></p>
-  </div>
-  <div class="card">
-    <h3>🩺 System</h3>
-    <p class="muted">ヘルスチェック／メトリクス。</p>
-    <p><a href="/healthz" target="_blank" rel="noreferrer">/healthz</a> ・
-       <a href="/readyz" target="_blank" rel="noreferrer">/readyz</a> ・
-       <a href="/metrics" target="_blank" rel="noreferrer">/metrics</a></p>
-  </div>
-  <div class="card">
-    <h3>🛠️ Admin</h3>
-    <p>コンテンツ管理・受講者管理・動画アップロード（管理者のみ）。</p>
-    <p><a href="/admin">Open</a></p>
-  </div>
-</div>
+      <nav class="nav">
+        <a href="/courses">繧ｳ繝ｼ繧ｹ</a>
+        <a href="/vod">隰帷ｾｩ蜍慕判</a>
+        <a href="/notes">繝弱・繝・/a>
+        <a href="/docs">繧ｬ繧､繝・/a>
+      </nav>
 
-<footer class="muted" style="margin-top:2rem">
-  <hr><small>© EduNotes</small>
-</footer>
-</body></html>
+      <div class="topbar__actions">
+        <form class="search" method="get" action="/courses">
+          <input type="search" name="q" placeholder="繧ｳ繝ｼ繧ｹ繝ｻ繝弱・繝医・隰帛ｸｫ繧呈､懃ｴ｢">
+        </form>
+        <a class="btn btn--ghost" href="/login">繝ｭ繧ｰ繧､繝ｳ</a>
+        <a class="btn btn--primary" href="/signup">譁ｰ隕冗匳骭ｲ</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="main">
+    <section class="container">
+      <div class="hero">
+        <span class="badge">蟄ｦ鄙偵ム繝・す繝･繝懊・繝・/span>
+        <h1 class="hero__title">蟄ｦ縺ｳ繧堤ｩ阪∩驥阪・繧九・繝ｼ繝縲・/h1>
+        <p class="hero__subtitle">繧ｳ繝ｼ繧ｹ縲∬ｬ帷ｾｩ蜍慕判縲√ヮ繝ｼ繝医ｒ縺ｲ縺ｨ縺､縺ｮ豬√ｌ縺ｧ謨ｴ逅・〒縺阪∪縺吶・/p>
+      </div>
+
+      <div class="section grid">
+        <article class="card">
+          <div class="card__eyebrow">繧ｳ繝ｼ繧ｹ</div>
+          <h3>蟄ｦ鄙偵さ繝ｼ繧ｹ繧帝∈縺ｶ</h3>
+          <p class="muted">繝・く繧ｹ繝域蕗譚舌〒蝓ｺ遉弱ｒ蝗ｺ繧√∫ｫ縺斐→縺ｫ騾ｲ謐励ｒ謚頑升縲・/p>
+          <div class="progress">
+            <div class="progress__bar" style="width: 0%"></div>
+          </div>
+          <a class="btn btn--primary" href="/courses">髢九￥</a>
+        </article>
+
+        <article class="card">
+          <div class="card__eyebrow">隰帷ｾｩ蜍慕判</div>
+          <h3>蜍慕判繝ｬ繝・せ繝ｳ繧定ｦ冶・</h3>
+          <p class="muted">驥崎ｦ√・繧､繝ｳ繝医ｒ遒ｺ隱阪＠縺ｪ縺後ｉ隕冶・縺励∝ｭｦ鄙偵・繝ｼ繧ｹ繧堤ｶｭ謖√・/p>
+          <div class="progress">
+            <div class="progress__bar" style="width: 0%"></div>
+          </div>
+          <a class="btn btn--primary" href="/vod">髢九￥</a>
+        </article>
+
+        <article class="card">
+          <div class="card__eyebrow">繝弱・繝・/div>
+          <h3>蟄ｦ縺ｳ繧偵Γ繝｢縺ｫ谿九☆</h3>
+          <p class="muted">豌励▼縺阪ｄ隕∫せ繧呈紛逅・＠縺ｦ縲∝ｾｩ鄙偵＠繧・☆縺・ｨ倬鹸縺ｸ縲・/p>
+          <a class="btn btn--primary" href="/notes">髢九￥</a>
+        </article>
+      </div>
+
+      <div class="section split">
+        <div class="card">
+          <div class="card__eyebrow">隰帛ｸｫ邏ｹ莉・/div>
+          <h3>隰帛ｸｫ繝励Ο繝輔ぅ繝ｼ繝ｫ</h3>
+          <p class="muted">迴ｾ蝣ｴ隕也せ縺ｮ隗｣隱ｬ縺ｨ縲∝ｮ溷漁縺ｫ蜊ｳ縺励◆繧ｫ繝ｪ繧ｭ繝･繝ｩ繝縺ｧ蟄ｦ鄙偵ｒ謾ｯ謠ｴ縺励∪縺吶・/p>
+          <div class="pill-group">
+            <span class="badge">螳溷漁繝吶・繧ｹ</span>
+            <span class="badge">遏ｭ譎る俣蟄ｦ鄙・/span>
+            <span class="badge">騾ｲ謐礼ｮ｡逅・/span>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card__eyebrow">邂｡逅・/div>
+          <h3>隰帛ｸｫ繧ｹ繧ｿ繧ｸ繧ｪ</h3>
+          <p class="muted">謨呎攝縺ｮ逋ｻ骭ｲ繧・虚逕ｻ縺ｮ蜈ｬ髢九ｒ陦後≧邂｡逅・判髱｢縺ｧ縺吶・/p>
+          <a class="btn btn--ghost" href="/admin">髢九￥</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="container footer__inner">
+      <div>
+        <div class="brand brand--footer">
+          <span class="brand__mark">EN</span>
+          <span class="brand__name">EduNotes</span>
+        </div>
+        <p class="muted">蟄ｦ鄙堤ｿ呈・繧呈紛縺医√ヮ繝ｼ繝医ｒ谿九＠縲√さ繝ｼ繧ｹ繧貞ｮ瑚ｵｰ縺吶ｋ縺溘ａ縺ｮ蝣ｴ謇縲・/p>
+      </div>
+      <div class="footer__links">
+        <a href="/courses">繧ｳ繝ｼ繧ｹ荳隕ｧ</a>
+        <a href="/notes">縺ゅ↑縺溘・繝弱・繝・/a>
+        <a href="/docs">蟄ｦ鄙偵ぎ繧､繝・/a>
+        <a href="/admin">隰帛ｸｫ繧ｹ繧ｿ繧ｸ繧ｪ</a>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

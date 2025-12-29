@@ -1,21 +1,31 @@
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8"/>
-  <title>Docs</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <style>body{font-family:system-ui,-apple-system,Segoe UI,Roboto;max-width:960px;margin:24px auto;padding:0 16px}</style>
-</head>
-<body>
-  <h1>受講マニュアル</h1>
-  <% if (!files.length) { %>
-    <p>まだMarkdownファイルがありません。</p>
-  <% } else { %>
-  <ul>
-    <% files.forEach(f => { const slug = f.replace(/\.md$/i,''); %>
-      <li><a href="/docs/<%= slug %>"><%= f %></a></li>
-    <% }) %>
-  </ul>
-  <% } %>
-</body>
-</html>
+﻿<%- include('../layout', { title: '蟄ｦ鄙偵ぎ繧､繝・| EduNotes', body: `
+<section class="container">
+  <div class="hero">
+    <span class="badge">蟄ｦ鄙偵ぎ繧､繝・/span>
+    <h1 class="hero__title">縺吶＄縺ｫ遲斐∴繧定ｦ九▽縺代ｋ縲・/h1>
+    <p class="hero__subtitle">蟄ｦ鄙偵・騾ｲ繧∵婿縲√ヮ繝ｼ繝医・ｲ謐礼ｮ｡逅・ｒ縺ｾ縺ｨ繧√※縺・∪縺吶・/p>
+  </div>
+
+  <div class="section">
+    <h2 class="section__title">繧ｬ繧､繝我ｸ隕ｧ</h2>
+    ${(!files || !files.length) ? `
+      <div class="card">
+        <p>繧ｬ繧､繝峨′縺ｾ縺縺ゅｊ縺ｾ縺帙ｓ縲・/p>
+      </div>
+    ` : `
+      <div class="grid">
+        ${files.map(f => {
+          const slug = f.replace(/\\.md$/i,'');
+          return `
+            <a class="card" href="/docs/${slug}">
+              <div class="card__eyebrow">繧ｬ繧､繝・/div>
+              <h3>${f}</h3>
+              <p class="muted">髢九￥</p>
+            </a>
+          `;
+        }).join('')}
+      </div>
+    `}
+  </div>
+</section>
+` }) %>

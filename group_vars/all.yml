@@ -45,9 +45,9 @@ s3_prefix_uploads: "uploads/"
 node_exporter_port: 9100
 
 # 管理者アカウント（初回シード用）
-admin_email: "admin@example.com"
+admin_email: "admin@infra-skills.com"
 admin_name: "Administrator"
-admin_seed_password: "Admin#2025!"   # ← 初回だけ値を入れる。投入後は "" に戻す
+admin_seed_password: "ChangeMeStrong!"   # ← 初回だけ値を入れる。投入後は "" に戻す
 
 # --- seed 用に環境変数をまとめて渡す ---
 edunotes_env:
