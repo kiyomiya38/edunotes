@@ -16,19 +16,19 @@
       <a class="brand" href="/">
         <span class="brand__mark">EN</span>
         <span class="brand__name">EduNotes</span>
-        <span class="brand__tag">蟄ｦ縺ｳ繧貞刈騾・/span>
+        <span class="brand__tag">学びを加速</span>
       </a>
 
       <nav class="nav">
-        <a href="/courses">繧ｳ繝ｼ繧ｹ</a>
-        <a href="/vod">隰帷ｾｩ蜍慕判</a>
-        <a href="/notes">繝弱・繝・/a>
-        <a href="/docs">繧ｬ繧､繝・/a>
+        <a href="/courses">コース</a>
+        <a href="/vod">講義動画</a>
+        <a href="/notes">ノート</a>
+        <a href="/docs">ガイド</a>
       </nav>
 
       <div class="topbar__actions">
         <form class="search" method="get" action="/courses">
-          <input type="search" name="q" placeholder="繧ｳ繝ｼ繧ｹ繝ｻ繝弱・繝医・隰帛ｸｫ繧呈､懃ｴ｢">
+          <input type="search" name="q" placeholder="コース・ノート・講師を検索">
         </form>
 
         <% if (user) { %>
@@ -36,12 +36,12 @@
             <span class="user-pill__email"><%= user.email %></span>
             <form method="post" action="/logout">
               <input type="hidden" name="_csrf" value="<%= csrfToken || '' %>">
-              <button class="btn btn--ghost" type="submit">繝ｭ繧ｰ繧｢繧ｦ繝・/button>
+              <button class="btn btn--ghost" type="submit">ログアウト</button>
             </form>
           </div>
         <% } else { %>
-          <a class="btn btn--ghost" href="/login">繝ｭ繧ｰ繧､繝ｳ</a>
-          <a class="btn btn--primary" href="/signup">譁ｰ隕冗匳骭ｲ</a>
+          <a class="btn btn--ghost" href="/login">ログイン</a>
+          <a class="btn btn--primary" href="/signup">新規登録</a>
         <% } %>
       </div>
     </div>
@@ -58,13 +58,13 @@
           <span class="brand__mark">EN</span>
           <span class="brand__name">EduNotes</span>
         </div>
-        <p class="muted">蟄ｦ鄙堤ｿ呈・繧呈紛縺医√ヮ繝ｼ繝医ｒ谿九＠縲√さ繝ｼ繧ｹ繧貞ｮ瑚ｵｰ縺吶ｋ縺溘ａ縺ｮ蝣ｴ謇縲・/p>
+        <p class="muted">学習習慣を整え、ノートを残し、コースを完走するための場所。</p>
       </div>
       <div class="footer__links">
-        <a href="/courses">繧ｳ繝ｼ繧ｹ荳隕ｧ</a>
-        <a href="/notes">縺ゅ↑縺溘・繝弱・繝・/a>
-        <a href="/docs">蟄ｦ鄙偵ぎ繧､繝・/a>
-        <a href="/admin">隰帛ｸｫ繧ｹ繧ｿ繧ｸ繧ｪ</a>
+        <a href="/courses">コース一覧</a>
+        <a href="/notes">あなたのノート</a>
+        <a href="/docs">学習ガイド</a>
+        <a href="/admin">講師スタジオ</a>
       </div>
     </div>
   </footer>

@@ -1,24 +1,28 @@
-﻿<%- include('../layout', { title: '譁ｰ隕上ヮ繝ｼ繝・| EduNotes', body: `
+﻿<%- include('../layout', { title: '新規ノート | EduNotes', body: `
 <section class="container">
   <div class="hero">
-    <span class="badge">譁ｰ隕上ヮ繝ｼ繝・/span>
-    <h1 class="hero__title">蟄ｦ繧薙□蜀・ｮｹ繧定ｨ倬鹸縲・/h1>
-    <p class="hero__subtitle">隕∫ｴ・・驥崎ｦ∬ｪ槭・谺｡縺ｮ繧｢繧ｯ繧ｷ繝ｧ繝ｳ繧呈ｮ九＠縺ｦ蠕ｩ鄙偵＠繧・☆縺上・/p>
+    <span class="badge">新規ノート</span>
+    <h1 class="hero__title">学んだ内容を記録。</h1>
+    <p class="hero__subtitle">要約・重要語・次のアクションを残して復習しやすく。</p>
   </div>
 
   <div class="section card">
     <form class="form" method="post" action="/notes">
       <input type="hidden" name="_csrf" value="${csrfToken}">
-      <label>繧ｿ繧､繝医Ν</label>
+      <label>タイトル</label>
       <input type="text" name="title" required>
-      <label>譛ｬ譁・ｼ・arkdown・・/label>
-      <textarea name="body_md" rows="12" placeholder="# 繝ｬ繝・せ繝ｳ縺ｮ隕∫ｴ・
-- 驥崎ｦ√・繧､繝ｳ繝・- 蜈ｷ菴謎ｾ・- 谺｡縺ｮ繧｢繧ｯ繧ｷ繝ｧ繝ｳ"></textarea>
+      <label>本文（Markdown）</label>
+      <textarea name="body_md" rows="12" placeholder="# レッスンの要約
+
+- 重要ポイント
+- 具体例
+- 次のアクション"></textarea>
       <label>
-        <input type="checkbox" name="is_public"> 縺薙・繝弱・繝医ｒ蜈ｬ髢九☆繧・      </label>
+        <input type="checkbox" name="is_public"> このノートを公開する
+      </label>
       <div style="display:flex; gap:12px; flex-wrap:wrap;">
-        <button class="btn btn--primary" type="submit">菫晏ｭ・/button>
-        <a class="btn btn--ghost" href="/notes">繧ｭ繝｣繝ｳ繧ｻ繝ｫ</a>
+        <button class="btn btn--primary" type="submit">保存</button>
+        <a class="btn btn--ghost" href="/notes">キャンセル</a>
       </div>
     </form>
   </div>

@@ -1,49 +1,49 @@
-﻿<%- include('layout', { title: '繝ｭ繧ｰ繧､繝ｳ | EduNotes', body: `
+﻿<%- include('layout', { title: 'ログイン | EduNotes', body: `
 <section class="container">
   <div class="hero">
-    <span class="badge">蟄ｦ鄙偵・繝ｼ繧ｿ繝ｫ</span>
-    <h1 class="hero__title">谺｡縺ｮ繝ｬ繝・せ繝ｳ繧堤ｶ壹￠縺ｾ縺励ｇ縺・・/h1>
-    <p class="hero__subtitle">騾ｲ謐励・遒ｺ隱阪∝虚逕ｻ縺ｮ蜀埼幕縲∝ｭｦ縺ｳ縺ｮ險倬鹸繧偵・縺ｨ縺､縺ｫ縲・/p>
+    <span class="badge">学習ポータル</span>
+    <h1 class="hero__title">次のレッスンを続けましょう。</h1>
+    <p class="hero__subtitle">進捗の確認、動画の再開、学びの記録をひとつに。</p>
   </div>
 
   <div class="section split">
     <div class="card">
-      <div class="card__eyebrow">驕ｸ縺ｰ繧後ｋ逅・罰</div>
-      <h2>繧ｳ繝ｼ繧ｹ繝ｻ繝弱・繝医・騾ｲ謐励ｒ縺ｾ縺ｨ繧√※邂｡逅・・/h2>
+      <div class="card__eyebrow">選ばれる理由</div>
+      <h2>コース・ノート・進捗をまとめて管理。</h2>
       <div class="grid">
         <div class="stat-card">
-          <strong>蟄ｦ鄙偵ヱ繧ｹ</strong>
-          <p class="muted">繝・・繝槫挨縺ｫ蟄ｦ縺ｳ縲・ｱ髢鍋岼讓吶〒繝壹・繧ｹ邂｡逅・・/p>
+          <strong>学習パス</strong>
+          <p class="muted">テーマ別に学び、週間目標でペース管理。</p>
         </div>
         <div class="stat-card">
-          <strong>隰帛ｸｫ繝弱・繝・/strong>
-          <p class="muted">隕∫せ縺ｨ縺ｾ縺ｨ繧√ｒ縺吶＄縺ｫ遒ｺ隱阪・/p>
+          <strong>講師ノート</strong>
+          <p class="muted">要点とまとめをすぐに確認。</p>
         </div>
         <div class="stat-card">
-          <strong>邯壹″縺九ｉ蜀埼幕</strong>
-          <p class="muted">荳ｭ譁ｭ縺励◆蝣ｴ謇縺九ｉ縺吶＄縺ｫ蟄ｦ鄙貞・髢九・/p>
+          <strong>続きから再開</strong>
+          <p class="muted">中断した場所からすぐに学習再開。</p>
         </div>
         <div class="stat-card">
-          <strong>蜈ｱ譛峨・蟄ｦ縺ｳ</strong>
-          <p class="muted">繧ｳ繝｡繝ｳ繝医〒逅・ｧ｣繧呈ｷｱ繧√ｋ縲・/p>
+          <strong>共有の学び</strong>
+          <p class="muted">コメントで理解を深める。</p>
         </div>
       </div>
     </div>
 
     <div class="auth-card">
-      <h2>繝ｭ繧ｰ繧､繝ｳ</h2>
+      <h2>ログイン</h2>
       ${error ? `<p style="color:#c00">${error}</p>` : ''}
       <form class="form" method="post" action="/login">
         <input type="hidden" name="_csrf" value="${csrfToken}">
         <input type="hidden" name="next" value="${typeof next !== 'undefined' && next ? next : '/courses'}">
-        <label>繝｡繝ｼ繝ｫ繧｢繝峨Ξ繧ｹ</label>
+        <label>メールアドレス</label>
         <input name="email" type="email" required>
-        <label>繝代せ繝ｯ繝ｼ繝・/label>
+        <label>パスワード</label>
         <input name="password" type="password" required>
-        <button class="btn btn--primary" type="submit">繝ｭ繧ｰ繧､繝ｳ</button>
+        <button class="btn btn--primary" type="submit">ログイン</button>
       </form>
-      <p class="muted">縺ｯ縺倥ａ縺ｦ縺ｮ譁ｹ縺ｯ <a href="/signup?next=${encodeURIComponent(typeof next !== 'undefined' && next ? next : '/courses')}">譁ｰ隕冗匳骭ｲ</a></p>
-      <p class="muted">邂｡逅・・・譁ｹ縺ｯ <a href="/admin/login">隰帛ｸｫ繧ｹ繧ｿ繧ｸ繧ｪ縺ｸ</a></p>
+      <p class="muted">はじめての方は <a href="/signup?next=${encodeURIComponent(typeof next !== 'undefined' && next ? next : '/courses')}">新規登録</a></p>
+      <p class="muted">管理者の方は <a href="/admin/login">講師スタジオへ</a></p>
     </div>
   </div>
 </section>

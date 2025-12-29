@@ -1,42 +1,42 @@
-﻿<%- include('../layout', { title: '繝弱・繝・| EduNotes', body: `
+﻿<%- include('../layout', { title: 'ノート | EduNotes', body: `
 <section class="container">
   <div class="hero">
-    <span class="badge">蟄ｦ鄙偵ヮ繝ｼ繝・/span>
-    <h1 class="hero__title">繝ｬ繝・せ繝ｳ縺斐→縺ｮ蟄ｦ縺ｳ繧定ｨ倬鹸縲・/h1>
-    <p class="hero__subtitle">讀懃ｴ｢繝ｻ繧ｿ繧ｰ莉倥￠縺ｧ隕∫せ繧呈紛逅・＠縲∝ｭｦ鄙偵Ο繧ｰ繧呈ｮ九＠縺ｾ縺吶・/p>
+    <span class="badge">学習ノート</span>
+    <h1 class="hero__title">レッスンごとの学びを記録。</h1>
+    <p class="hero__subtitle">検索・タグ付けで要点を整理し、学習ログを残します。</p>
   </div>
 
   <div class="section card">
-    <div class="card__eyebrow">讀懃ｴ｢</div>
+    <div class="card__eyebrow">検索</div>
     <form method="get" action="/notes" class="form">
-      <input type="text" name="q" placeholder="繧ｿ繧､繝医Ν繝ｻ繧ｭ繝ｼ繝ｯ繝ｼ繝峨・隕∫せ縺ｧ讀懃ｴ｢" value="${q || ''}">
+      <input type="text" name="q" placeholder="タイトル・キーワード・要点で検索" value="${q || ''}">
       <div style="display:flex; gap:12px; flex-wrap:wrap;">
-        <button class="btn btn--primary" type="submit">讀懃ｴ｢</button>
-        <a class="btn btn--ghost" href="/notes/new">譁ｰ隕上ヮ繝ｼ繝・/a>
+        <button class="btn btn--primary" type="submit">検索</button>
+        <a class="btn btn--ghost" href="/notes/new">新規ノート</a>
       </div>
     </form>
   </div>
 
   <div class="section">
-    <h2 class="section__title">譛霑代・繝弱・繝・/h2>
+    <h2 class="section__title">最近のノート</h2>
     ${rows && rows.length ? `
       <div class="grid">
         ${rows.map(n => `
           <article class="card">
-            <div class="card__eyebrow">${n.is_public ? '蜈ｬ髢九ヮ繝ｼ繝・ : '髱槫・髢九ヮ繝ｼ繝・}</div>
+            <div class="card__eyebrow">${n.is_public ? '公開ノート' : '非公開ノート'}</div>
             <h3>${n.title}</h3>
             <div class="meta">
-              <span>菴懈・閠・ ${n.author_email}</span>
+              <span>作成者: ${n.author_email}</span>
               <span>${new Date(n.created_at).toLocaleString()}</span>
             </div>
-            <a class="btn btn--ghost" href="/notes/${n.id}">髢九￥</a>
+            <a class="btn btn--ghost" href="/notes/${n.id}">開く</a>
           </article>
         `).join('')}
       </div>
     ` : `
       <div class="card">
-        <p>縺ｾ縺繝弱・繝医′縺ゅｊ縺ｾ縺帙ｓ縲よ怙蛻昴・蟄ｦ鄙偵Γ繝｢繧剃ｽ懈・縺励∪縺励ｇ縺・・/p>
-        <a class="btn btn--primary" href="/notes/new">繝弱・繝医ｒ菴懈・</a>
+        <p>まだノートがありません。最初の学習メモを作成しましょう。</p>
+        <a class="btn btn--primary" href="/notes/new">ノートを作成</a>
       </div>
     `}
   </div>

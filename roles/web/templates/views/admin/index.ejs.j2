@@ -1,71 +1,72 @@
-﻿<%- include('../layout', { title: '隰帛ｸｫ繧ｹ繧ｿ繧ｸ繧ｪ | EduNotes', body: `
+﻿<%- include('../layout', { title: '講師スタジオ | EduNotes', body: `
 <section class="container">
   <div class="hero">
-    <span class="badge">隰帛ｸｫ繧ｹ繧ｿ繧ｸ繧ｪ</span>
-    <h1 class="hero__title">謨呎攝繧貞ｮ牙ｿ・＠縺ｦ蜈ｬ髢九・/h1>
-    <p class="hero__subtitle">繝・く繧ｹ繝医→蜍慕判繧剃ｽ懈・縺励∫洒譎る俣縺ｧ蜈ｬ髢九〒縺阪∪縺吶・/p>
+    <span class="badge">講師スタジオ</span>
+    <h1 class="hero__title">教材を安心して公開。</h1>
+    <p class="hero__subtitle">テキストと動画を作成し、短時間で公開できます。</p>
   </div>
 
   <div class="section grid">
     <div class="card">
-      <div class="card__eyebrow">讎りｦ・/div>
-      <h3>蜿苓ｬ幄・焚</h3>
+      <div class="card__eyebrow">概要</div>
+      <h3>受講者数</h3>
       <p style="font-size:2rem; margin:0;">${stats.users}</p>
-      <p class="muted">蜈ｨ繧ｳ繝ｼ繧ｹ縺ｮ蜿苓ｬ幄・焚縲・/p>
+      <p class="muted">全コースの受講者数。</p>
     </div>
     <div class="card">
-      <div class="card__eyebrow">繝弱・繝・/div>
-      <h3>菴懈・縺輔ｌ縺溘ヮ繝ｼ繝・/h3>
+      <div class="card__eyebrow">ノート</div>
+      <h3>作成されたノート</h3>
       <p style="font-size:2rem; margin:0;">${stats.notes}</p>
-      <p class="muted">蜿苓ｬ幄・′菴懈・縺励◆蟄ｦ鄙偵ヮ繝ｼ繝医・/p>
+      <p class="muted">受講者が作成した学習ノート。</p>
     </div>
     <div class="card">
-      <div class="card__eyebrow">繝ｪ繝ｳ繧ｯ</div>
-      <p><a href="/courses">繧ｳ繝ｼ繧ｹ荳隕ｧ</a></p>
-      <p><a href="/vod">蜍慕判荳隕ｧ</a></p>
-      <p><a href="/docs">蟄ｦ鄙偵ぎ繧､繝・/a></p>
+      <div class="card__eyebrow">リンク</div>
+      <p><a href="/courses">コース一覧</a></p>
+      <p><a href="/vod">動画一覧</a></p>
+      <p><a href="/docs">学習ガイド</a></p>
     </div>
   </div>
 
   <div class="section split">
     <div class="card">
-      <div class="card__eyebrow">繝・く繧ｹ繝域蕗譚・/div>
-      <h2>Markdown謨呎攝繧偵い繝・・繝ｭ繝ｼ繝・/h2>
+      <div class="card__eyebrow">テキスト教材</div>
+      <h2>Markdown教材をアップロード</h2>
       <form id="form-text" class="form">
-        <label for="t-title">繧ｿ繧､繝医Ν</label>
-        <input id="t-title" type="text" placeholder="萓・ 隨ｬ1遶 繧､繝ｳ繝医Ο" required>
+        <label for="t-title">タイトル</label>
+        <input id="t-title" type="text" placeholder="例: 第1章 イントロ" required>
 
-        <label for="t-slug">繧ｹ繝ｩ繝・げ</label>
+        <label for="t-slug">スラッグ</label>
         <input id="t-slug" type="text" placeholder="intro-1">
 
-        <label for="t-file">Markdown繝輔ぃ繧､繝ｫ (.md)</label>
+        <label for="t-file">Markdownファイル (.md)</label>
         <input id="t-file" type="file" accept=".md,text/markdown,text/plain" required>
 
         <label>
-          <input id="t-publish" type="checkbox" checked> 蜿苓ｬ幄・↓蜈ｬ髢九☆繧・        </label>
+          <input id="t-publish" type="checkbox" checked> 受講者に公開する
+        </label>
 
         <div style="display:flex; gap:12px; flex-wrap:wrap;">
-          <button class="btn btn--primary" type="submit">菴懈・縺吶ｋ</button>
+          <button class="btn btn--primary" type="submit">作成する</button>
           <span id="t-msg" class="muted"></span>
         </div>
       </form>
     </div>
 
     <div class="card">
-      <div class="card__eyebrow">蜍慕判謨呎攝</div>
-      <h2>MP4蜍慕判繧偵い繝・・繝ｭ繝ｼ繝・/h2>
+      <div class="card__eyebrow">動画教材</div>
+      <h2>MP4動画をアップロード</h2>
       <form id="form-video" class="form">
-        <label for="v-title">繧ｿ繧､繝医Ν</label>
-        <input id="v-title" type="text" placeholder="萓・ 隨ｬ1遶 隰帷ｾｩ蜍慕判" required>
+        <label for="v-title">タイトル</label>
+        <input id="v-title" type="text" placeholder="例: 第1章 講義動画" required>
 
-        <label for="v-slug">繧ｹ繝ｩ繝・げ</label>
+        <label for="v-slug">スラッグ</label>
         <input id="v-slug" type="text" placeholder="video-1">
 
-        <label for="v-file">蜍慕判繝輔ぃ繧､繝ｫ (.mp4)</label>
+        <label for="v-file">動画ファイル (.mp4)</label>
         <input id="v-file" type="file" accept="video/mp4" required>
 
         <div style="display:flex; gap:12px; flex-wrap:wrap;">
-          <button class="btn btn--primary" type="submit">繧｢繝・・繝ｭ繝ｼ繝・/button>
+          <button class="btn btn--primary" type="submit">アップロード</button>
           <progress id="v-progress" value="0" max="100" style="display:none"></progress>
           <span id="v-msg" class="muted"></span>
         </div>
@@ -126,17 +127,17 @@
     e.preventDefault();
     const msg = document.getElementById('t-msg');
     msg.className = 'muted';
-    msg.textContent = '菴懈・荳ｭ...';
+    msg.textContent = '作成中...';
     try {
       const title = tTitle.value.trim();
       const slugInput = tSlug.value.trim();
       const file  = tFile.files[0];
       const pub   = document.getElementById('t-publish').checked;
-      if (!file) throw new Error('Markdown繝輔ぃ繧､繝ｫ繧帝∈謚槭＠縺ｦ縺上□縺輔＞');
+      if (!file) throw new Error('Markdownファイルを選択してください');
 
       const body_md = await new Promise((res, rej) => {
         const fr = new FileReader();
-        fr.onerror = () => rej(new Error('繝輔ぃ繧､繝ｫ縺ｮ隱ｭ縺ｿ霎ｼ縺ｿ縺ｫ螟ｱ謨励＠縺ｾ縺励◆'));
+        fr.onerror = () => rej(new Error('ファイルの読み込みに失敗しました'));
         fr.onload  = () => res(String(fr.result || ''));
         fr.readAsText(file, 'utf-8');
       });
@@ -150,12 +151,12 @@
       }
 
       msg.className = 'ok';
-      msg.textContent = '菴懈・縺励∪縺励◆縲・D: ' + created.id + '縲ゅ・繝ｼ繧ｸ繧堤ｧｻ蜍輔＠縺ｾ縺・..';
+      msg.textContent = '作成しました。ID: ' + created.id + '。ページを移動します...';
       setTimeout(() => location.href = '/courses', 600);
     } catch (err) {
       console.error(err);
       msg.className = 'err';
-      msg.textContent = '螟ｱ謨励＠縺ｾ縺励◆: ' + (err?.message || '荳肴・縺ｪ繧ｨ繝ｩ繝ｼ');
+      msg.textContent = '失敗しました: ' + (err?.message || '不明なエラー');
     }
   });
 
@@ -164,12 +165,12 @@
     const msg = document.getElementById('v-msg');
     const bar = document.getElementById('v-progress');
     msg.className = 'muted';
-    msg.textContent = '繧｢繝・・繝ｭ繝ｼ繝我ｸｭ...';
+    msg.textContent = 'アップロード中...';
     try {
       const title = vTitle.value.trim();
       const slugInput = vSlug.value.trim();
       const file  = vFile.files[0];
-      if (!file) throw new Error('MP4繝輔ぃ繧､繝ｫ繧帝∈謚槭＠縺ｦ縺上□縺輔＞');
+      if (!file) throw new Error('MP4ファイルを選択してください');
 
       const slug = slugInput || makeSlug(title || (file?.name.replace(/\\.[^.]+$/, '') || 'video'), 'video');
 
@@ -191,8 +192,8 @@
             bar.value = Math.round(ev.loaded / ev.total * 100);
           }
         };
-        xhr.onerror = () => reject(new Error('繧｢繝・・繝ｭ繝ｼ繝峨↓螟ｱ謨励＠縺ｾ縺励◆'));
-        xhr.onload = () => (xhr.status >= 200 && xhr.status < 300) ? resolve() : reject(new Error('S3縺ｮ蠢懃ｭ・ ' + xhr.status));
+        xhr.onerror = () => reject(new Error('アップロードに失敗しました'));
+        xhr.onload = () => (xhr.status >= 200 && xhr.status < 300) ? resolve() : reject(new Error('S3の応答: ' + xhr.status));
         xhr.send(file);
       });
 
@@ -204,12 +205,12 @@
       await patchJSON('/api/admin/lessons/' + created.id, { published:true, visibility:'public' });
 
       msg.className = 'ok';
-      msg.textContent = '繧｢繝・・繝ｭ繝ｼ繝牙ｮ御ｺ・・D: ' + created.id + '縲ゅ・繝ｼ繧ｸ繧堤ｧｻ蜍輔＠縺ｾ縺・..';
+      msg.textContent = 'アップロード完了。ID: ' + created.id + '。ページを移動します...';
       setTimeout(() => location.href = '/vod', 800);
     } catch (err) {
       console.error(err);
       msg.className = 'err';
-      msg.textContent = '螟ｱ謨励＠縺ｾ縺励◆: ' + (err?.message || '荳肴・縺ｪ繧ｨ繝ｩ繝ｼ');
+      msg.textContent = '失敗しました: ' + (err?.message || '不明なエラー');
     } finally {
       bar.style.display = 'none';
       bar.value = 0;

@@ -1,31 +1,31 @@
-﻿<%- include('../layout', { title: '隰帷ｾｩ蜍慕判 | EduNotes', body: `
+﻿<%- include('../layout', { title: '講義動画 | EduNotes', body: `
 <section class="container">
   <div class="hero">
-    <span class="badge">隰帷ｾｩ蜍慕判</span>
-    <h1 class="hero__title">隕冶・繝ｻ荳譎ょ●豁｢繝ｻ縺吶＄蜀埼幕縲・/h1>
-    <p class="hero__subtitle">蜷・虚逕ｻ縺ｫ縺ｯ隕∫せ繝弱・繝医→繝√ぉ繝・け繝昴う繝ｳ繝医′縺ゅｊ縺ｾ縺吶・/p>
+    <span class="badge">講義動画</span>
+    <h1 class="hero__title">視聴・一時停止・すぐ再開。</h1>
+    <p class="hero__subtitle">各動画には要点ノートとチェックポイントがあります。</p>
   </div>
 
   <div class="section">
-    <h2 class="section__title">譛譁ｰ縺ｮ蜍慕判</h2>
+    <h2 class="section__title">最新の動画</h2>
     ${(!items || !items.length) ? `
       <div class="card">
-        <p>蜍慕判縺後∪縺縺ゅｊ縺ｾ縺帙ｓ縲ょ・髢九∪縺ｧ縺雁ｾ・■縺上□縺輔＞縲・/p>
+        <p>動画がまだありません。公開までお待ちください。</p>
       </div>
     ` : `
       <div class="grid">
         ${items.map(v => `
           <article class="card">
-            <div class="card__eyebrow">蜍慕判繝ｬ繝・せ繝ｳ</div>
+            <div class="card__eyebrow">動画レッスン</div>
             <h3>${v.title}</h3>
             <div class="meta">
-              <span>蜀咲函譎る俣: ${v.duration || '譛ｪ螳・}</span>
-              <span>HD驟堺ｿ｡</span>
+              <span>再生時間: ${v.duration || '未定'}</span>
+              <span>HD配信</span>
             </div>
             <div class="progress">
               <div class="progress__bar" style="width: 0%"></div>
             </div>
-            <a class="btn btn--primary" href="/vod/${v.id}">蜀咲函</a>
+            <a class="btn btn--primary" href="/vod/${v.id}">再生</a>
           </article>
         `).join('')}
       </div>
@@ -33,10 +33,10 @@
   </div>
 
   <div class="section card">
-    <div class="card__eyebrow">蟄ｦ鄙偵ｒ邯壹￠繧・/div>
-    <h3>蜍慕判縺ｨ繝弱・繝医ｒ邨・∩蜷医ｏ縺帙ｋ縲・/h3>
-    <p class="muted">髢｢騾｣繝弱・繝医ｒ髢九＞縺ｦ縲∬ｦ∫せ繧剃ｸｦ陦後＠縺ｦ謨ｴ逅・＠縺ｾ縺励ｇ縺・・/p>
-    <a class="btn btn--ghost" href="/notes">繝弱・繝医ｒ髢九￥</a>
+    <div class="card__eyebrow">学習を続ける</div>
+    <h3>動画とノートを組み合わせる。</h3>
+    <p class="muted">関連ノートを開いて、要点を並行して整理しましょう。</p>
+    <a class="btn btn--ghost" href="/notes">ノートを開く</a>
   </div>
 </section>
 ` }) %>

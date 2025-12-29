@@ -1,55 +1,55 @@
 ﻿<%- include('../layout', { title: `${n.title} | EduNotes`, body: `
 <section class="container">
   <div class="card">
-    <a class="muted" href="/notes">繝弱・繝井ｸ隕ｧ縺ｸ謌ｻ繧・/a>
+    <a class="muted" href="/notes">ノート一覧へ戻る</a>
     <h1 class="hero__title" style="font-size:2.2rem">${n.title}</h1>
     <div class="meta">
-      <span>菴懈・閠・ ${n.author_email}</span>
-      <span>菴懈・譌･: ${new Date(n.created_at).toLocaleString()}</span>
-      <span>譖ｴ譁ｰ譌･: ${new Date(n.updated_at).toLocaleString()}</span>
-      ${n.is_public ? '<span class="badge">蜈ｬ髢・/span>' : ''}
+      <span>作成者: ${n.author_email}</span>
+      <span>作成日: ${new Date(n.created_at).toLocaleString()}</span>
+      <span>更新日: ${new Date(n.updated_at).toLocaleString()}</span>
+      ${n.is_public ? '<span class="badge">公開</span>' : ''}
     </div>
     <div class="note-content">
       ${n.body_html}
     </div>
     <div style="margin-top:16px;">
-      <a class="btn btn--ghost" href="/notes/${n.id}/edit">繝弱・繝医ｒ邱ｨ髮・/a>
+      <a class="btn btn--ghost" href="/notes/${n.id}/edit">ノートを編集</a>
     </div>
   </div>
 
   <div class="section split">
     <div class="card">
-      <h2>繧ｿ繧ｰ</h2>
+      <h2>タグ</h2>
       ${tags && tags.length ? `
         <div class="pill-group">
           ${tags.map(t => `<span class="badge">#${t.name}</span>`).join(' ')}
         </div>
-      ` : `<p class="muted">繧ｿ繧ｰ縺ｯ縺ｾ縺縺ゅｊ縺ｾ縺帙ｓ縲・/p>`}
+      ` : `<p class="muted">タグはまだありません。</p>`}
       <form class="form" method="post" action="/notes/${n.id}/tags">
         <input type="hidden" name="_csrf" value="${csrfToken}">
-        <label>繧ｿ繧ｰ繧定ｿｽ蜉</label>
-        <input name="name" placeholder="萓・ 繝・・繧ｿ繝吶・繧ｹ">
-        <button class="btn btn--ghost" type="submit">霑ｽ蜉</button>
+        <label>タグを追加</label>
+        <input name="name" placeholder="例: データベース">
+        <button class="btn btn--ghost" type="submit">追加</button>
       </form>
     </div>
 
     <div class="card">
-      <h2>繧ｳ繝｡繝ｳ繝・/h2>
+      <h2>コメント</h2>
       ${comments && comments.length ? `
         <ul>
           ${comments.map(c => `
             <li style="margin-bottom:16px;">
-              <div class="meta">${c.author_email} ﾂｷ ${new Date(c.created_at).toLocaleString()}</div>
+              <div class="meta">${c.author_email} · ${new Date(c.created_at).toLocaleString()}</div>
               <div class="note-content">${c.body_html}</div>
             </li>
           `).join('')}
         </ul>
-      ` : `<p class="muted">繧ｳ繝｡繝ｳ繝医・縺ｾ縺縺ゅｊ縺ｾ縺帙ｓ縲・/p>`}
+      ` : `<p class="muted">コメントはまだありません。</p>`}
       <form class="form" method="post" action="/notes/${n.id}/comments">
         <input type="hidden" name="_csrf" value="${csrfToken}">
-        <label>繧ｳ繝｡繝ｳ繝医ｒ譖ｸ縺擾ｼ・arkdown・・/label>
-        <textarea name="body_md" rows="5" placeholder="豌励▼縺阪ｄ雉ｪ蝠上ｒ譖ｸ縺阪∪縺励ｇ縺・.."></textarea>
-        <button class="btn btn--primary" type="submit">繧ｳ繝｡繝ｳ繝医☆繧・/button>
+        <label>コメントを書く（Markdown）</label>
+        <textarea name="body_md" rows="5" placeholder="気づきや質問を書きましょう..."></textarea>
+        <button class="btn btn--primary" type="submit">コメントする</button>
       </form>
     </div>
   </div>

@@ -1,34 +1,34 @@
-﻿<%- include('../layout', { title: '隰帛ｸｫ繧ｹ繧ｿ繧ｸ繧ｪ | EduNotes', body: `
+﻿<%- include('../layout', { title: '講師スタジオ | EduNotes', body: `
 <section class="container">
   <div class="hero">
-    <span class="badge">隰帛ｸｫ繧ｹ繧ｿ繧ｸ繧ｪ</span>
-    <h1 class="hero__title">繧ｳ繝ｼ繧ｹ縺ｨ蜍慕判繧堤ｮ｡逅・・/h1>
-    <p class="hero__subtitle">謨呎攝縺ｮ逋ｻ骭ｲ縲∝・髢九∝ｭｦ鄙堤憾豕√・謚頑升繧偵∪縺ｨ繧√※陦後∴縺ｾ縺吶・/p>
+    <span class="badge">講師スタジオ</span>
+    <h1 class="hero__title">コースと動画を管理。</h1>
+    <p class="hero__subtitle">教材の登録、公開、学習状況の把握をまとめて行えます。</p>
   </div>
 
   <div class="section split">
     <div class="card">
-      <div class="card__eyebrow">繧ｹ繧ｿ繧ｸ繧ｪ讎りｦ・/div>
-      <h2>謨呎攝繧偵・縺ｨ縺､縺ｮ蝣ｴ謇縺ｧ邂｡逅・・/h2>
-      <p class="muted">繝・く繧ｹ繝医→蜍慕判繧剃ｽ懈・縺励∝ｭｦ逕溷髄縺代↓蜈ｬ髢九〒縺阪∪縺吶・/p>
+      <div class="card__eyebrow">スタジオ概要</div>
+      <h2>教材をひとつの場所で管理。</h2>
+      <p class="muted">テキストと動画を作成し、受講者向けに公開できます。</p>
       <div class="pill-group">
-        <span class="badge">菴懈・繝・・繝ｫ</span>
-        <span class="badge">蜈ｬ髢・/span>
-        <span class="badge">蜩∬ｳｪ邂｡逅・/span>
+        <span class="badge">作成ツール</span>
+        <span class="badge">公開</span>
+        <span class="badge">品質管理</span>
       </div>
     </div>
     <div class="auth-card">
-      <h2>邂｡逅・・Ο繧ｰ繧､繝ｳ</h2>
+      <h2>管理者ログイン</h2>
       ${error ? `<p style="color:#c00">${error}</p>` : ''}
       <form class="form" method="post" action="/admin/login">
         <input type="hidden" name="_csrf" value="${csrfToken}">
-        <label>繝｡繝ｼ繝ｫ繧｢繝峨Ξ繧ｹ</label>
+        <label>メールアドレス</label>
         <input name="email" type="email" required>
-        <label>繝代せ繝ｯ繝ｼ繝・/label>
+        <label>パスワード</label>
         <input name="password" type="password" required>
-        <button class="btn btn--primary" type="submit">繝ｭ繧ｰ繧､繝ｳ</button>
+        <button class="btn btn--primary" type="submit">ログイン</button>
       </form>
-      <p class="muted">蜿苓ｬ帷函縺ｮ譁ｹ縺ｯ <a href="/login">蟄ｦ鄙偵・繝ｼ繧ｿ繝ｫ縺ｸ</a></p>
+      <p class="muted">受講生の方は <a href="/login">学習ポータルへ</a></p>
     </div>
   </div>
 </section>
