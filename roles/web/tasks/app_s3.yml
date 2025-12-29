@@ -101,7 +101,7 @@
 - name: Fallback compose redis_url from redis_host/password when SSM param is missing (strict)
   ansible.builtin.set_fact:
     redis_url: >-
-      redis://:{{ (redis_password | default('') ) | urlencode }}@
+      redis://:{{ (redis_pass | default(redis_password | default('')) ) | urlencode }}@
       {{ redis_host | trim }}:{{ redis_port | default(6379) }}/0
   when:
     - (redis_url is not defined) or (redis_url | trim) == ''
