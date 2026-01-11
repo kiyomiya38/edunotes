@@ -1,62 +1,52 @@
-# group_vars/all.yml  ← 変数定義専用。余計な行は置かない
 aws_region: ap-northeast-3
 
 project: "edunotes"
 domain_name: "notes.infra-skills.com"
 
-# --- App 配置 ---
+
+ssm_path_prefix: "student3-edunotes"
+
 app_repo: "https://github.com/kiyomiya38/edunotes-app.git"
 app_branch: "main"
-app_dir: "/opt/edunotes/app"        # ← 追加：Ansibleがここへ配置
-node_env: "production"               # ← 追加：npm ci / 実行時に使用
+app_dir: "/opt/edunotes/app"
+node_env: "production"
 
-# ---- DB (SSM/Secrets の参照パスを統一) ----
-ssm_db_host: "/edunotes/db/host"
-ssm_db_name: "/edunotes/db/name"
-ssm_db_user: "/edunotes/db/user"
-secret_db_password: "/edunotes/db/password"
-# （必要なら）DB接続の固定値
-db_port: 5432                        # ← 追加：DB URL 組み立て用
-db_scheme: "postgres"                # ← 追加：将来 MySQL 等切替時も対応
+ssm_db_host: "/{{ ssm_path_prefix }}/db/host"
+ssm_db_name: "/{{ ssm_path_prefix }}/db/name"
+ssm_db_user: "/{{ ssm_path_prefix }}/db/user"
+secret_db_password: "/{{ ssm_path_prefix }}/db/password"
+db_port: 5432
+db_scheme: "postgres"
 
-# ---- Redis（必要になったら使う。今はフェーズ2想定）----
-ssm_redis_host: "/edunotes/redis/host"
-ssm_redis_password: "/edunotes/redis/password"
-redis_port: 6379                     # ← 追加
-redis_db: 0                          # ← 追加
+ssm_redis_host: "/{{ ssm_path_prefix }}/redis/host"
+ssm_redis_password: "/{{ ssm_path_prefix }}/redis/password"
+redis_port: 6379
+redis_db: 0
 session_secret: "change-this-to-a-long-random-string"
 
-# ---- 共有ストレージ（今回は S3 を使用）----
-storage_mode: "s3"                   # "efs" に切り替え可
+storage_mode: "s3"
 
-# （名称そろえ）S3 変数：テンプレ/サーバから直接参照
-s3_bucket: "edunotes-uploads-bucket" # ← 既存名をそのまま採用（Terraformで作成済み）
-s3_prefix: "uploads/"                # ← 既存の s3_prefix_uploads を統一名に
-s3_region: "{{ aws_region }}"        # ← 追加：SDK用
-s3_endpoint: ""                      # ← 追加：AWS S3 のままなら空（MinIOならURL）
-s3_force_path_style: "false"         # ← 追加：MinIO互換なら "true"
-s3_signed_url_ttl: 900               # ← 追加：署名URLの期限(秒)
+s3_bucket: "edunotes-uploads-bucket"
+s3_prefix: "uploads/"
+s3_region: "{{ aws_region }}"
+s3_endpoint: ""
+s3_force_path_style: "false"
+s3_signed_url_ttl: 900
 
-# ※ 互換のため旧名も暫定維持（テンプレを新名に揃えたら下2行は削除OK）
 s3_bucket_uploads: "edunotes-uploads-bucket"
 s3_prefix_uploads: "uploads/"
 
-# ---- その他 ----
 node_exporter_port: 9100
 
-# 管理者アカウント（初回シード用）
 admin_email: "admin@infra-skills.com"
 admin_name: "Administrator"
-admin_seed_password: "ChangeMeStrong!"   # ← 初回だけ値を入れる。投入後は "" に戻す
+admin_seed_password: "ChangeMeStrong!"
 
-# --- seed 用に環境変数をまとめて渡す ---
 edunotes_env:
   ADMIN_EMAIL: "{{ admin_email }}"
   ADMIN_NAME: "{{ admin_name }}"
   ADMIN_SEED_PASSWORD: "{{ admin_seed_password }}"
-  # RDS などで自己署名 CA を使っている場合の対策
-  DB_SSL_REJECT_UNAUTHORIZED: "false"  # ← 文字列で "false" にしてください
-  PGSSLMODE: "require"                 # ← 併用可（どちらか片方でも可）
+  DB_SSL_REJECT_UNAUTHORIZED: "false"
+  PGSSLMODE: "require"
 
-# DB の自己署名 CA を許容（RDS 旧証明書や社内CA向け）
 db_ssl_reject_unauthorized: "false"
