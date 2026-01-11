@@ -31,7 +31,6 @@
     group: edunotes
     mode: "0644"
 
-# ★ ここからフロント
 - name: Ensure public dir
   ansible.builtin.file:
     path: /opt/edunotes/public
@@ -48,7 +47,6 @@
     group: edunotes
     mode: "0644"
 
-# 追加: 管理者向けS3直PUTの簡易確認ページ（必要ない場合は削除OK）
 - name: Deploy uploader.html
   ansible.builtin.template:
     src: "uploader.html.j2"
@@ -57,7 +55,6 @@
     group: edunotes
     mode: "0644"
 
-# クリーンインストール
 - name: Remove stale lockfile
   ansible.builtin.file:
     path: "/opt/edunotes/package-lock.json"
@@ -78,11 +75,10 @@
   become: true
   become_user: edunotes
 
-# ── ここから（SSMの /edunotes/redis/url を直接読む）──
 - name: Read Redis URL via AWS CLI (from SSM)
   ansible.builtin.command: >
     aws ssm get-parameter
-    --name "/edunotes/redis/url"
+    --name "/{{ ssm_path_prefix }}/redis/url"
     --with-decryption
     --region {{ aws_region }}
     --query 'Parameter.Value'
@@ -96,8 +92,6 @@
     redis_url: "{{ redis_url_cmd.stdout | trim }}"
   when: redis_url_cmd.rc == 0 and (redis_url_cmd.stdout | trim) != ''
 
-# Fallback: SSMに /edunotes/redis/url が無い場合のみ、自前でREDIS_URLを組み立てる
-# ただし redis_host が空/未設定なら絶対に生成しない（@:6379/0 を防ぐ）
 - name: Fallback compose redis_url from redis_host/password when SSM param is missing (strict)
   ansible.builtin.set_fact:
     redis_url: >-
@@ -108,7 +102,6 @@
     - redis_host is defined
     - (redis_host | trim) | length > 0
 
-# 生成されたURLが明らかに不正なら捨てる（@:6379/0 等）
 - name: Clear redis_url when it looks invalid
   ansible.builtin.set_fact:
     redis_url: ""
@@ -116,18 +109,17 @@
     - redis_url is defined
     - redis_url | trim | regex_search('^redis://:@(:[0-9]+)?/0$')
 
-# ここで“空のREDIS_URLでの誤配備”を防ぎたいなら assert（任意）
 - name: Assert redis_url is present (to avoid CSRF/session pitfalls)
   ansible.builtin.assert:
     that:
       - (redis_url | default('') | trim) != ''
     fail_msg: >-
-      redis_url が空です。SSM /edunotes/redis/url を作成するか、
-      もしくは inventory/group_vars で redis_host/redis_password を設定してください。
+      redis_url is empty. Create the SSM parameter
+      /{{ ssm_path_prefix }}/redis/url or set redis_host/redis_password
+      in inventory/group_vars.
     success_msg: "redis_url is set."
   ignore_errors: false
 
-# ── ここまで ───────────────────────────────────────────
 
 - name: Render /etc/edunotes/env
   ansible.builtin.template:
@@ -147,9 +139,9 @@
   loop:
     - /opt/edunotes/views
     - /opt/edunotes/views/notes
-    - /opt/edunotes/views/courses    # 追加
-    - /opt/edunotes/views/vod        # 追加
-    - /opt/edunotes/views/docs       # 追加（docs/show.ejs を流用する場合に必要）
+    - /opt/edunotes/views/courses
+    - /opt/edunotes/views/vod
+    - /opt/edunotes/views/docs
     - /opt/edunotes/routes
 
 - name: Deploy EJS views
@@ -167,7 +159,6 @@
     - { src: "notes/new.ejs.j2",      dest: "notes/new.ejs" }
     - { src: "notes/show.ejs.j2",     dest: "notes/show.ejs" }
     - { src: "notes/edit.ejs.j2",     dest: "notes/edit.ejs" }
-    # 追加ビュー
     - { src: "docs/index.ejs.j2",     dest: "docs/index.ejs" }
     - { src: "docs/show.ejs.j2",      dest: "docs/show.ejs" }
     - { src: "courses/index.ejs.j2",  dest: "courses/index.ejs" }
@@ -188,8 +179,7 @@
     - vod.js
     - docs.js
     - admin.js
-    - admin_lessons.js   # 追加（管理API）
-    # - lessons.js       # 汎用レッスンAPIを作る場合のみ有効化（今回は不要）
+    - admin_lessons.js
 
 - name: Deploy DB schema
   ansible.builtin.template:
@@ -199,7 +189,6 @@
     group: edunotes
     mode: "0644"
 
-# ★ psql クライアント（Debian/Ubuntu）
 - name: Ensure PostgreSQL client is installed
   ansible.builtin.apt:
     name: postgresql-client
@@ -207,11 +196,9 @@
     update_cache: yes
   when: ansible_os_family | lower == "debian"
 
-# ★ RDS ルート証明書（必要な場合のみ取得）
 - name: Ensure RDS global root bundle exists (if path in env)
   ansible.builtin.shell: |
     set -euo pipefail
-    # env を読み、PGSSLROOTCERT が /etc/ssl/certs/rds-global-bundle.pem のときだけ取得
     if [ -f /etc/edunotes/env ]; then set -a; . /etc/edunotes/env; set +a; fi
     TARGET="${PGSSLROOTCERT:-}"
     if [ "${TARGET}" = "/etc/ssl/certs/rds-global-bundle.pem" ] && [ ! -s "${TARGET}" ]; then
@@ -222,11 +209,9 @@
     executable: /bin/bash
   changed_when: false
 
-# ★ env を読んでそのまま DB_URL でスキーマ適用（idempotent）
 - name: Apply DB schema (idempotent)
   ansible.builtin.shell: |
     set -euo pipefail
-    # /etc/edunotes/env を読み込み
     if [ -f /etc/edunotes/env ]; then set -a; . /etc/edunotes/env; set +a; fi
     if [ -z "${DB_URL:-}" ]; then
       echo "[INFO] DB_URL not set. Skip schema apply."
@@ -235,22 +220,20 @@
 
     CONN="${DB_URL}"
 
-    # もし verify-full が指定されていて rootcert が見つからない場合は一時的に require に変更して適用
     if [ "${PGSSLMODE:-}" = "verify-full" ] && [ -n "${PGSSLROOTCERT:-}" ] && [ ! -s "${PGSSLROOTCERT}" ]; then
       echo "[WARN] PGSSLROOTCERT not found. Temporarily using sslmode=require for schema apply."
       CONN="${DB_URL}?sslmode=require"
     fi
 
-    # psql 実行（失敗時は即エラー）
     psql "${CONN}" -v ON_ERROR_STOP=1 -f /opt/edunotes/schema.sql
   args:
     executable: /bin/bash
   changed_when: false
 
-# （※ 再起動は最後にまとめる）
 - name: Restart edunotes service (after all files are in place)
   ansible.builtin.systemd:
     name: edunotes
     state: restarted
     enabled: yes
     daemon_reload: yes
+
